@@ -10,7 +10,7 @@ const { updateDesktop, removeManaged, hashFile, verifyInstallation, archiveAndVe
 const PRODUCT = '售前解决方案工具', DIRECTORY = PRODUCT + '-win-x64';
 
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'presales-package-test-'));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'presales-package-test-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ version: '1.6.0' }));
   return root;

@@ -9,7 +9,7 @@ const { createHash } = require('node:crypto');
 const { createFilesystemService, attachFilesystem } = require('./filesystem.cjs');
 
 async function fixture(t) {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'bid-filesystem-test-'));
+  const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'bid-filesystem-test-')));
   const root = path.join(base, 'workspace');
   const outside = path.join(base, 'outside');
   const userData = path.join(base, 'app-data');

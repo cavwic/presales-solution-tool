@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, realpath, rm, symlink } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -8,9 +8,10 @@ import { createHash } from "node:crypto";
 import { collectThirdPartyNotices, inlineLegalComments, renderThirdPartyNotices, thirdPartyNoticesPlugin } from "./third-party-notices.mjs";
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "presales-notices-test-"));
+  const temporaryRoot = await realpath(os.tmpdir());
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "presales-notices-test-")));
   t.after(async () => {
-    if (!path.resolve(root).startsWith(path.resolve(os.tmpdir()) + path.sep) || !path.basename(root).startsWith("presales-notices-test-")) throw new Error("Unsafe fixture cleanup");
+    if (!path.resolve(root).startsWith(temporaryRoot + path.sep) || !path.basename(root).startsWith("presales-notices-test-")) throw new Error("Unsafe fixture cleanup");
     await rm(root, { recursive: true, force: true });
   });
   await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "own-app", version: "1.0.0", license: "MIT" }));

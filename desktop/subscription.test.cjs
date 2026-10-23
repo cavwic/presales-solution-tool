@@ -11,7 +11,7 @@ const {SubscriptionTurn} = require('./subscription/turn.cjs');
 const {childEnvironment, resolveRuntime} = require('./subscription/runtime.cjs');
 
 function fixture(t, {account = {type:'chatgpt'}, threadModel, onTurn, handler, writeFailure} = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(),'bid-subscription-'));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(),'bid-subscription-')));
   const calls = [], children = [];
   const spawnImpl = (_command, args, options) => {
     const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough();
@@ -161,7 +161,7 @@ test('late start acknowledgment after timeout only interrupts its owned turn', a
   turn.started('late-turn'); assert.deepEqual(interrupted,[['thread','late-turn']]);
 });
 test('close during discovery prevents child creation', async t => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(),'bid-discovery-')); t.after(() => fs.rmSync(root,{recursive:true,force:true}));
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(),'bid-discovery-'))); t.after(() => fs.rmSync(root,{recursive:true,force:true}));
   let release, spawned = false;
   const provider = createSubscriptionProvider({userData:root,runtimeResolver:() => new Promise(resolve => { release = resolve; }),spawnImpl:() => { spawned = true; }});
   const pending = provider.catalog(); provider.close(); release({command:'test.exe',clientVersion:'codex-cli 0.163.0'});

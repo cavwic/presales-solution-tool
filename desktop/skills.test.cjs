@@ -10,9 +10,10 @@ const { createSkillService, attachSkills, parseSkill, LIMITS, CHANNELS } = requi
 
 const markdown = (name = 'synthetic-skill', description = 'A synthetic skill for tests only.') => Buffer.from(`---\nname: ${name}\ndescription: ${description}\n---\n\n# Synthetic guidance\nUse only verified project facts.\n`);
 async function fixture(t, options = {}) {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'presales-skills-test-'));
+  const temporaryRoot = await fs.realpath(os.tmpdir());
+  const directory = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'presales-skills-test-')));
   t.after(async () => {
-    const resolved = path.resolve(directory), expected = path.resolve(os.tmpdir()) + path.sep;
+    const resolved = path.resolve(directory), expected = temporaryRoot + path.sep;
     if (!resolved.startsWith(expected) || !path.basename(resolved).startsWith('presales-skills-test-')) throw new Error('Unsafe fixture cleanup');
     await fs.rm(resolved, { recursive: true, force: true });
   });

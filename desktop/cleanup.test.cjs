@@ -8,7 +8,7 @@ const os = require('node:os');
 const { createCleanupService, attachCleanup } = require('./cleanup.cjs');
 
 async function fixture(t, options = {}) {
-  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'presales-cleanup-test-'));
+  const base = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'presales-cleanup-test-')));
   const userData = path.join(base, 'app-data');
   await fs.mkdir(path.join(userData, 'previews', 'preview-a'), { recursive: true });
   t.after(() => fs.rm(base, { recursive: true, force: true }));
