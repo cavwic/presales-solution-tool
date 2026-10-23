@@ -1,8 +1,8 @@
 # 售前解决方案工具 · Presales Solution Tool
 
-[简体中文](#user-content-presales-chinese) · [English](#user-content-presales-english)
+[English](#user-content-presales-english) · [简体中文](#user-content-presales-chinese)
 
-<details name="readme-language">
+<details name="readme-language" open>
 <summary><strong>English</strong></summary>
 
 <a name="presales-english"></a>
@@ -74,7 +74,7 @@ Software code is licensed under [MIT](LICENSE). Project-authored Skills, documen
 
 </details>
 
-<details name="readme-language" open>
+<details name="readme-language">
 <summary><strong>简体中文</strong></summary>
 
 <a name="presales-chinese"></a>
