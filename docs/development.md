@@ -73,4 +73,6 @@ node scripts/update-desktop.cjs
 
 更新入口的候选验证、替换和失败恢复流程见 [发行说明](releases.md)。已安装稳定版只在候选验证成功后替换；成功后删除临时恢复副本和旧发行包。
 
+修改应用版本时使用 `npm version <版本号> --no-git-tag-version --ignore-scripts` 更新顶层包元数据，再按需更新发行说明和原生客户端版本。不要在依赖锁文件中全文替换版本字符串。
+
 原生层维护用户数据目录、存储键与本地页面 origin 的兼容标识，避免升级后丢失模型配置、项目缓存及目录授权。代码来源基线为 CAVWIC Solutions Lab 的 `19d6b39453138d1f8930714fec58295342ad805a`，后续桌面改动见 [CHANGELOG](../CHANGELOG.md)。
