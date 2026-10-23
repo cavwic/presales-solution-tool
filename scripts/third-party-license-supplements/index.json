@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "entries": [
+    {
+      "name": "@nodable/entities",
+      "version": "3.0.0",
+      "license": "MIT",
+      "file": "nodable-entities-3.0.0-LICENSE.txt",
+      "sourceUrl": "https://raw.githubusercontent.com/nodable/val-parsers/d2070d76a8ba07e6c7fa142caeb51ffd756e47eb/LICENSE",
+      "packageMetadataUrl": "https://registry.npmjs.org/@nodable/entities/3.0.0",
+      "revision": "d2070d76a8ba07e6c7fa142caeb51ffd756e47eb",
+      "provenance": "The npm 3.0.0 metadata identifies this official repository gitHead. Its LICENSE supplies the MIT text omitted from the npm file whitelist.",
+      "sha256": "750cb3fb6362804957ef52caaf9b5c824015be44d494637330d7cd8834d31d40"
+    },
+    {
+      "name": "dingbat-to-unicode",
+      "version": "1.0.1",
+      "license": "BSD-2-Clause",
+      "file": "dingbat-to-unicode-1.0.1-LICENSE.txt",
+      "sourceUrl": "https://raw.githubusercontent.com/mwilliamson/dingbat-to-unicode/a89b69198c2dd030b097cbf44b4eb7dd8b85722d/js/LICENSE",
+      "packageMetadataUrl": "https://registry.npmjs.org/dingbat-to-unicode/1.0.1",
+      "versionEvidenceUrl": "https://raw.githubusercontent.com/mwilliamson/dingbat-to-unicode/a89b69198c2dd030b097cbf44b4eb7dd8b85722d/js/package.json",
+      "revision": "a89b69198c2dd030b097cbf44b4eb7dd8b85722d",
+      "publishedTagRevision": "b27f259b49907f99b1b9097abba5a9668106b779",
+      "provenance": "The npm package and official js-1.0.1 tag declare BSD-2-Clause but omit the full license text. The author added this LICENSE in the pinned official commit while js/package.json still identifies version 1.0.1; the file states Copyright (c) 2021, Michael Williamson. This supplement is not represented as part of the published npm archive.",
+      "sha256": "1013cef4b629a3c7eaf737c110fb5bebbf3abbc16e154d769468d71c3653fa37"
+    }
+  ]
+}

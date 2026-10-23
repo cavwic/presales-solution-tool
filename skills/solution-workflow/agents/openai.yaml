@@ -1,0 +1,4 @@
+interface:
+  display_name: "Solution Workflow"
+  short_description: "Run a presales-to-handover solution project"
+  default_prompt: "Use $solution-workflow to structure this solution project from discovery through technical handover."

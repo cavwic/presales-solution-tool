@@ -1,0 +1,7 @@
+任务编号,责任部门,任务名称,任务范围,交付类型,响应方式,交付物名称,责任人,截止日期,前置依赖,来源依据,验收标准,响应记录,状态,变更说明
+,,,,document,file,,,,,,,,pending,
+,,,,drawing-bom,file,,,,,,,,pending,
+,,,,software,path,,,,,,,,pending,
+,,,,test-record,mixed,,,,,,,,pending,
+,,,,training,mixed,,,,,,,,pending,
+,,,,site-action,confirmation,,,,,,,,pending,

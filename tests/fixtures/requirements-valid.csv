@@ -1,0 +1,2 @@
+id,baseline,category,title,originalText,normalizedText,mandatory,scored,scoreWeight,dueDate,documentId,segmentId,locator,excerpt,owner,responseStatus,deviationType,formalResponse,evidenceRefs,reviewState,linkedDiscoveryId,conflictNote,acceptanceCriteria,notes
+req-001,tender,technical,日志保留 180 天,关键日志保存时间不少于 180 天。,关键日志至少保留 180 天。,true,false,,,tender-v1,page-18,第 18 页 / 4.3.2,关键日志保存时间不少于 180 天。,,missing_evidence,pending,,,draft,,,,公开虚构示例

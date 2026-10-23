@@ -1,0 +1,2 @@
+id,baseline,category,title,originalText,normalizedText,mandatory,scored,scoreWeight,dueDate,documentId,segmentId,locator,excerpt,owner,responseStatus,deviationType,formalResponse,evidenceRefs,reviewState,linkedDiscoveryId,conflictNote,acceptanceCriteria,notes
+req-001,tender,technical,,,,false,false,,,,,,,,missing_evidence,pending,,,draft,,,,

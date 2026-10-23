@@ -1,0 +1,5 @@
+interface:
+  display_name: "Solution Architecture Pack"
+  short_description: "Build boundaries, interfaces, and recovery"
+  brand_color: "#2F6F6A"
+  default_prompt: "Use $solution-architecture-pack to turn this discovery record into a reviewable architecture and interface pack."

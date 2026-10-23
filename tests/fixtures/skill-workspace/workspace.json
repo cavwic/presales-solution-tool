@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "1.0.0",
+  "activeProjectId": "fixture-project",
+  "projects": [
+    { "id": "fixture-project", "name": "Fixture project", "updatedAt": "2026-08-14T00:00:00.000Z" }
+  ]
+}

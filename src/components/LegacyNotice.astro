@@ -1,0 +1,12 @@
+---
+import { ArrowRight, Archive } from "@lucide/astro";
+const { titleZh, titleEn } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<section class="legacy-notice">
+  <Archive size={28}/>
+  <p><span data-i18n="zh">旧工具 / 已停用</span><span data-i18n="en">LEGACY TOOL / RETIRED</span></p>
+  <h1><span data-i18n="zh">{titleZh}</span><span data-i18n="en">{titleEn}</span></h1>
+  <p><span data-i18n="zh">该评分工具已停止维护。相关售前、POC、要求响应和交底记录已并入解决方案项目工作台，不再用加权分数决定后续工作。</span><span data-i18n="en">This scoring tool is retired. Presales, POC, requirement response, and handover records now belong in the Solution Project Workbench, without using weighted scores to decide what happens next.</span></p>
+  <a href={`${base}/`}><span data-i18n="zh">进入解决方案项目工作台</span><span data-i18n="en">Open the Solution Project Workbench</span><ArrowRight size={18}/></a>
+</section>

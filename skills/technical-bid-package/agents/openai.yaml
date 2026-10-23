@@ -1,0 +1,4 @@
+interface:
+  display_name: "Technical Bid Package"
+  short_description: "Build a source-backed technical bid package"
+  default_prompt: "Use $technical-bid-package to draft a technical bid package from reviewed requirements and verified company materials."

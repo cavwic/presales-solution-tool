@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "fixture-project",
+  "name": "公开虚构技术投标示例",
+  "customerAlias": "虚构客户",
+  "industry": "企业 AI",
+  "owner": "解决方案负责人",
+  "stage": "tender",
+  "locale": "zh",
+  "localPathHint": "",
+  "budget": "由商务负责",
+  "deadline": "2026-09-30",
+  "objective": "验证要求追溯、技术响应和交底流程。",
+  "constraints": "示例不包含真实客户、价格、资质或内部资料。",
+  "updatedAt": "2026-08-14T00:00:00.000Z",
+  "sources": [],
+  "requirements": [
+    {
+      "id": "req-001",
+      "baseline": "tender",
+      "category": "technical",
+      "title": "日志保留 180 天",
+      "originalText": "关键日志保存时间不少于 180 天。",
+      "normalizedText": "关键日志至少保留 180 天。",
+      "mandatory": true,
+      "scored": false,
+      "scoreWeight": "",
+      "dueDate": "",
+      "sourceRef": { "documentId": "tender-v1", "segmentId": "page-18", "locator": "第 18 页 / 4.3.2", "excerpt": "关键日志保存时间不少于 180 天。" },
+      "owner": "平台负责人",
+      "responseStatus": "confirmed",
+      "deviationType": "none",
+      "formalResponse": "系统按已核验配置保留关键日志 180 天。",
+      "evidenceRefs": ["evidence-001"],
+      "reviewState": "approved",
+      "linkedDiscoveryId": "",
+      "conflictNote": "",
+      "acceptanceCriteria": "配置策略并抽查日志范围、权限和保留周期。",
+      "notes": "公开虚构示例。"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence-001",
+      "title": "公开虚构产品手册",
+      "kind": "manual",
+      "fileName": "sample-manual.pdf",
+      "version": "1.0",
+      "verifiedAt": "2026-08-14",
+      "expiresAt": "2099-12-31",
+      "sourceRef": null,
+      "notes": "仅用于自动化测试。"
+    }
+  ],
+  "actions": [
+    { "id": "action-001", "stage": "delivery", "title": "技术交底", "owner": "解决方案负责人", "dueDate": "2026-10-01", "status": "open", "sourceRequirementId": "req-001", "notes": "" }
+  ],
+  "deliverables": [
+    { "id": "d-01", "stage": "tender", "kind": "technical-proposal", "title": "技术方案", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-02", "stage": "tender", "kind": "response-matrix", "title": "响应表", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-03", "stage": "tender", "kind": "deviation-table", "title": "偏离表", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-04", "stage": "tender", "kind": "module-detail", "title": "模块分项", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-05", "stage": "tender", "kind": "drawing-register", "title": "图纸清单", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-06", "stage": "tender", "kind": "deployment-manual", "title": "部署方案", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-07", "stage": "tender", "kind": "acceptance-plan", "title": "验收方案", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" },
+    { "id": "d-08", "stage": "tender", "kind": "certificate-register", "title": "证书清单", "status": "approved", "owner": "解决方案负责人", "dueDate": "", "sourceIds": [], "notes": "" }
+  ],
+  "sections": [
+    { "id": "section-001", "title": "日志与审计", "purpose": "响应日志要求。", "requirementIds": ["req-001"], "evidenceIds": ["evidence-001"], "body": "依据公开虚构产品手册编制。", "reviewState": "approved" }
+  ],
+  "pocPlan": { "objective": "验证日志。", "demoScope": "公开虚构样本。", "acceptance": "检查保留策略。", "failureAndFallback": "配置失败时停止并人工处理。" },
+  "handoverNotes": ""
+}

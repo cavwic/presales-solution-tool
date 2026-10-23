@@ -1,0 +1,180 @@
+---
+import { Files, Languages, Moon, Redo2, Sun, Undo2 } from "@lucide/astro";
+import "../styles/global.css";
+const titleZh = "售前解决方案工具";
+const titleEn = "Presales Solution Tool";
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const href = (path: string) => `${base}${path}`;
+---
+<!doctype html>
+<html lang="zh-CN" data-locale="zh">
+  <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="description" content="本地售前、招标分析、投标文件与中标交底工作台。"/>
+    <meta name="color-scheme" content="light dark"/>
+    <title>{titleZh}</title>
+    <script is:inline define:vars={{ titleZh, titleEn }}>
+      const saved = localStorage.getItem("cavwic-lab-theme");
+      const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+      const initialTheme = saved === "light" || saved === "dark" ? saved : (systemTheme.matches ? "dark" : "light");
+      document.documentElement.dataset.theme = initialTheme;
+      const savedLocale = localStorage.getItem("cavwic-lab-locale");
+      const initialLocale = savedLocale === "en" ? "en" : "zh";
+      let maximized = false;
+      let historyState = { canUndo: false, canRedo: false, busy: false };
+      const updateHistoryControls = () => {
+        const locale = document.documentElement.dataset.locale === "en" ? "en" : "zh";
+        const undoButton = document.getElementById("global-history-undo");
+        const redoButton = document.getElementById("global-history-redo");
+        if (undoButton) {
+          const label = locale === "zh" ? "撤销（最多三步）" : "Undo (up to three steps)";
+          undoButton.setAttribute("aria-label", label);
+          undoButton.setAttribute("title", label);
+          undoButton.disabled = historyState.busy || !historyState.canUndo;
+        }
+        if (redoButton) {
+          const label = locale === "zh" ? "恢复（最多三步）" : "Redo (up to three steps)";
+          redoButton.setAttribute("aria-label", label);
+          redoButton.setAttribute("title", label);
+          redoButton.disabled = historyState.busy || !historyState.canRedo;
+        }
+      };
+      const updateGlobalControls = () => {
+        const locale = document.documentElement.dataset.locale === "en" ? "en" : "zh";
+        const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+        const themeButton = document.getElementById("global-theme-toggle");
+        const localeButton = document.getElementById("global-locale-toggle");
+        const maximizeButton = document.getElementById("window-maximize");
+        if (themeButton) {
+          const label = locale === "zh"
+            ? (theme === "light" ? "切换到深色模式" : "切换到浅色模式")
+            : (theme === "light" ? "Switch to dark mode" : "Switch to light mode");
+          themeButton.setAttribute("aria-label", label);
+          themeButton.setAttribute("title", label);
+        }
+        if (localeButton) {
+          const label = locale === "zh" ? "Switch to English" : "切换到中文";
+          localeButton.setAttribute("aria-label", label);
+          localeButton.setAttribute("title", label);
+        }
+        const labels = locale === "zh"
+          ? { minimize: "最小化", maximize: maximized ? "还原窗口" : "最大化", close: "关闭" }
+          : { minimize: "Minimize", maximize: maximized ? "Restore window" : "Maximize", close: "Close" };
+        ["minimize", "maximize", "close"].forEach((action) => {
+          const button = document.getElementById(`window-${action}`);
+          button?.setAttribute("aria-label", labels[action]);
+          button?.setAttribute("title", labels[action]);
+        });
+        if (maximizeButton) maximizeButton.dataset.maximized = String(maximized);
+        document.querySelector(".lab-brand")?.setAttribute("aria-label", locale === "zh" ? titleZh : titleEn);
+        document.getElementById("global-history-controls")?.setAttribute("aria-label", locale === "zh" ? "操作历史" : "Edit history");
+        document.getElementById("global-window-controls")?.setAttribute("aria-label", locale === "zh" ? "语言、主题和窗口控制" : "Language, theme and window controls");
+        updateHistoryControls();
+      };
+      const applyLocale = (locale) => {
+        document.documentElement.dataset.locale = locale;
+        document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+        document.title = locale === "zh" ? titleZh : titleEn;
+        window.bidDesktop?.setLocale?.(locale);
+        updateGlobalControls();
+      };
+      applyLocale(initialLocale);
+      window.addEventListener("cavwic-locale-change", (event) => applyLocale(event.detail));
+      window.addEventListener("cavwic-theme-change", (event) => {
+        document.documentElement.dataset.theme = event.detail;
+        const preferredTheme = localStorage.getItem("cavwic-lab-theme");
+        window.bidDesktop?.setTheme?.(preferredTheme === "light" || preferredTheme === "dark" ? preferredTheme : "system");
+        updateGlobalControls();
+      });
+      systemTheme.addEventListener("change", (event) => {
+        if (localStorage.getItem("cavwic-lab-theme")) return;
+        window.dispatchEvent(new CustomEvent("cavwic-theme-change", { detail: event.matches ? "dark" : "light" }));
+      });
+      window.addEventListener("cavwic-history-state", (event) => {
+        historyState = { ...historyState, ...event.detail };
+        updateHistoryControls();
+      });
+      window.addEventListener("DOMContentLoaded", () => {
+        document.documentElement.dataset.desktop = String(Boolean(window.bidDesktop));
+        window.bidDesktop?.setTheme?.(saved === "light" || saved === "dark" ? saved : "system");
+        window.bidDesktop?.onWindowState?.((state) => {
+          maximized = Boolean(state.maximized);
+          document.documentElement.dataset.windowMaximized = String(maximized);
+          updateGlobalControls();
+        });
+        document.querySelectorAll(".window-resize-handle").forEach((handle) => {
+          let resizing = false;
+          const send = (phase, event) => window.bidDesktop?.windowResize?.({ phase, edge: handle.dataset.edge, screenX: event.screenX, screenY: event.screenY });
+          handle.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0 || maximized) return;
+            event.preventDefault();
+            resizing = true;
+            handle.setPointerCapture(event.pointerId);
+            send("start", event);
+          });
+          handle.addEventListener("pointermove", (event) => { if (resizing) send("move", event); });
+          const end = (event) => {
+            if (!resizing) return;
+            resizing = false;
+            send("end", event);
+            if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+          };
+          handle.addEventListener("pointerup", end);
+          handle.addEventListener("pointercancel", end);
+          handle.addEventListener("lostpointercapture", end);
+        });
+        ["minimize", "maximize", "close"].forEach((action) => {
+          document.getElementById(`window-${action}`)?.addEventListener("click", () => window.bidDesktop?.windowControl?.(action));
+        });
+        document.getElementById("global-history-undo")?.addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("cavwic-history-undo"));
+        });
+        document.getElementById("global-history-redo")?.addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("cavwic-history-redo"));
+        });
+        document.getElementById("global-theme-toggle")?.addEventListener("click", () => {
+          const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+          localStorage.setItem("cavwic-lab-theme", next);
+          window.dispatchEvent(new CustomEvent("cavwic-theme-change", { detail: next }));
+        });
+        document.getElementById("global-locale-toggle")?.addEventListener("click", () => {
+          const next = document.documentElement.dataset.locale === "zh" ? "en" : "zh";
+          localStorage.setItem("cavwic-lab-locale", next);
+          window.dispatchEvent(new CustomEvent("cavwic-locale-change", { detail: next }));
+        });
+        updateGlobalControls();
+        window.dispatchEvent(new CustomEvent("cavwic-history-request"));
+      });
+    </script>
+  </head>
+  <body>
+    {["n", "ne", "e", "se", "s", "sw", "w", "nw"].map((edge) => <div class={`window-resize-handle window-resize-${edge}`} data-edge={edge} aria-hidden="true"/>)}
+    <header class="lab-header">
+      <div class="lab-header-leading">
+        <a class="lab-brand" href={href("/")} aria-label="售前解决方案工具"><span><Files size={20}/></span><strong data-i18n="zh">售前解决方案工具</strong><strong data-i18n="en">Presales Solution Tool</strong></a>
+        <nav id="global-history-controls" class="global-history-controls" aria-label="操作历史">
+          <button id="global-history-undo" class="global-header-control global-history-control" type="button" aria-label="撤销（最多三步）" disabled>
+            <Undo2 size={18}/>
+          </button>
+          <button id="global-history-redo" class="global-header-control global-history-control" type="button" aria-label="恢复（最多三步）" disabled>
+            <Redo2 size={18}/>
+          </button>
+        </nav>
+      </div>
+      <div id="workbench-header-settings" class="workbench-header-settings"></div>
+      <nav id="global-window-controls" aria-label="语言、主题和窗口控制">
+        <button id="global-locale-toggle" class="global-header-control" type="button" aria-label="Switch to English">
+          <Languages size={18}/><span data-i18n="zh">EN</span><span data-i18n="en">中</span>
+        </button>
+        <button id="global-theme-toggle" class="global-header-control global-theme-toggle" type="button" aria-label="切换到深色模式">
+          <Moon class="theme-icon theme-moon" size={18}/><Sun class="theme-icon theme-sun" size={18}/>
+        </button>
+        <button id="window-minimize" class="window-control" type="button" aria-label="最小化" title="最小化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 12.5h16"/></svg></button>
+        <button id="window-maximize" class="window-control" type="button" aria-label="最大化" title="最大化" data-maximized="false"><svg class="window-maximize-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14"/></svg><svg class="window-restore-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 5h11v11"/><rect x="5" y="8" width="11" height="11"/></svg></button>
+        <button id="window-close" class="window-control window-close" type="button" aria-label="关闭" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg></button>
+      </nav>
+    </header>
+    <main><slot/></main>
+  </body>
+</html>

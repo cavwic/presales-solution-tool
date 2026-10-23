@@ -1,0 +1,7 @@
+{
+  "title": { "layout": "Title Slide", "titlePlaceholder": 0, "bodyPlaceholder": 1 },
+  "section": { "layout": "Section Header", "titlePlaceholder": 0, "bodyPlaceholder": 1 },
+  "content": { "layout": "Title and Content", "titlePlaceholder": 0, "bodyPlaceholder": 1 },
+  "comparison": { "layout": "Comparison", "titlePlaceholder": 0, "bodyPlaceholder": 1 },
+  "closing": { "layout": "Title and Content", "titlePlaceholder": 0, "bodyPlaceholder": 1 }
+}

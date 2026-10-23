@@ -1,0 +1,5 @@
+interface:
+  display_name: "Product Comparison Research"
+  short_description: "Compare products with source traceability"
+  brand_color: "#2F6F6A"
+  default_prompt: "Use $product-comparison-research to build a source-backed, scenario-specific product matrix with unknowns preserved."

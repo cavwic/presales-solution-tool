@@ -1,0 +1,5 @@
+interface:
+  display_name: "Presales Discovery"
+  short_description: "Qualify requirements before solutioning"
+  brand_color: "#2F6F6A"
+  default_prompt: "Use $presales-discovery to turn this opportunity into a fact-tagged discovery record and verification plan."

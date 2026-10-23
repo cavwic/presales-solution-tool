@@ -1,0 +1,69 @@
+{
+  "name": "cavwic-presales-solution-tool",
+  "version": "1.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 43202",
+    "dev:start": "astro dev --port 43202 --host 127.0.0.1 --background",
+    "dev:stop": "astro dev stop",
+    "dev:status": "astro dev status",
+    "dev:logs": "astro dev logs",
+    "review": "node scripts/serve-dist.mjs --port 43202",
+    "dev:test": "node scripts/serve-dist.mjs --port 14332",
+    "package:skills": "node scripts/package-skills.mjs",
+    "build": "npm run package:skills && astro build",
+    "build:review": "astro build --mode review",
+    "check": "astro check",
+    "test": "vitest run src",
+    "test:e2e": "playwright test",
+    "verify": "npm run check && npm run test && npm run test:desktop && npm run test:packaging && npm run test:notices && npm run build && npm run test:models-ui && npm run test:local-models-ui && npm run test:responsive-ui",
+    "package:desktop": "node scripts/package-desktop.cjs",
+    "test:desktop": "node --test --test-isolation=none desktop/*.test.cjs",
+    "test:models-ui": "node tests/desktop/smoke-model-controls.cjs",
+    "test:local-models-ui": "node tests/desktop/smoke-local-models.cjs",
+    "test:responsive-ui": "node tests/desktop/smoke-responsive.cjs",
+    "test:installed": "node tests/desktop/smoke-installed.cjs",
+    "test:plans-skills-ui": "node tests/desktop/check-plans-skills.cjs",
+    "test:cleanup-ui": "node tests/desktop/check-file-cleanup.cjs",
+    "update:desktop": "node scripts/update-desktop.cjs",
+    "test:packaging": "node --test --test-isolation=none tests/build/*.test.cjs",
+    "test:notices": "node --test scripts/third-party-notices.test.mjs"
+  },
+  "dependencies": {
+    "@astrojs/react": "^5.0.2",
+    "@lucide/astro": "^1.31.0",
+    "astro": "^7.2.1",
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "fast-xml-parser": "^5.10.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.468.0",
+    "mammoth": "^1.12.1",
+    "pdfjs-dist": "^6.2.108",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@playwright/test": "^1.58.2",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "electron": "44.5.1",
+    "pe-library": "1.0.1",
+    "resedit": "2.0.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "main": "desktop/main.cjs",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cavwic/presales-solution-tool.git"
+  }
+}

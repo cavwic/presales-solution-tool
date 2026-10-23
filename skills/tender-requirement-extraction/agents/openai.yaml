@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tender Requirement Extraction"
+  short_description: "Extract traceable tender requirements and changes"
+  default_prompt: "Use $tender-requirement-extraction to turn these tender files into a source-linked review matrix."

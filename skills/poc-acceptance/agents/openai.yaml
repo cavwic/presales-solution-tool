@@ -1,0 +1,5 @@
+interface:
+  display_name: "Poc Acceptance"
+  short_description: "Define POC evidence before building"
+  brand_color: "#DF4C35"
+  default_prompt: "Use $poc-acceptance to define samples, metrics, failure cases, evidence, and sign-off for this POC."

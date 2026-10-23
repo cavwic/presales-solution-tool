@@ -1,0 +1,5 @@
+interface:
+  display_name: "Technical Proposal Audit"
+  short_description: "Find proposal risks before submission"
+  brand_color: "#DF4C35"
+  default_prompt: "Use $technical-proposal-audit to review this proposal for unsupported commitments, delivery gaps, and disclosure risks."
