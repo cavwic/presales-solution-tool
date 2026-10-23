@@ -57,7 +57,7 @@ describe("source parsers", () => {
     expect(result.requiresOcr).toBe(false);
     expect(result.segments[0].locator).toBe("第 1 页");
     expect(result.segments[0].text).toContain("traceability");
-  });
+  }, 30_000); // Includes the PDF worker's first load on a fresh Windows runner.
 
   it("separates readable tender text from image sources that require OCR", async () => {
     const text = await parseSourceFile(new File(["投标人应提交部署方案、验收方案和项目进度计划，并在投标文件中标明来源。"], "tender.txt", { type: "text/plain" }));
