@@ -7,13 +7,15 @@
 | 目录 | 内容 |
 | --- | --- |
 | `src/` | 界面、业务逻辑与相邻单元测试 |
-| `desktop/` | 原生窗口、目录访问、模型与 Skills 服务 |
+| `desktop/` | 原生窗口、目录访问、项目资料库、模型与 Skills 服务 |
 | `tests/desktop/` | 当前桌面验收与候选安装检查 |
 | `tests/fixtures/` | 虚构测试数据 |
 | `skills/` | 本项目工作流指引和模板 |
 | `scripts/` | 构建、更新与维护入口 |
 | `docs/` | 用户和开发文档 |
 | `release/` | 本机当前稳定运行版及对应 ZIP，忽略于 Git |
+| `项目资料库/` | 本机项目索引、资料与生成文件，忽略于 Git |
+| `preserved/` | 用户明确要求保留的原版及独立快照，忽略于 Git |
 | `.cache/validation/` | 测试 profile、报告与截图，忽略于 Git |
 
 历史本机验收材料位于被忽略的 `docs/validation/local/`。本机依赖路径配置使用被忽略的 `config/local-build.json`；仓库不包含用户资料、密钥或导入的第三方 Skills。
@@ -53,15 +55,19 @@ npm run build
 ```powershell
 node tests/desktop/smoke-installed.cjs
 node tests/desktop/check-workbench-layout.cjs
+node tests/desktop/check-workspace-clipping.cjs
+node tests/desktop/check-project-library.cjs
 node tests/desktop/check-file-cleanup.cjs
 node tests/desktop/check-plans-skills.cjs
 ```
 
-前三个专项不调用真实模型；套餐和 Skills 专项用本地模型服务及受控网络响应验证请求链路。`smoke-model-controls.cjs`、`smoke-local-models.cjs` 和 `smoke-responsive.cjs` 也位于该目录，分别覆盖模型设置、本地协议与复杂响应式页面。
+安装、布局、裁切、项目资料库和清理专项不调用真实模型；套餐和 Skills 专项用本地模型服务及受控网络响应验证请求链路。`smoke-model-controls.cjs`、`smoke-local-models.cjs` 和 `smoke-responsive.cjs` 也位于该目录，分别覆盖模型设置、本地协议与复杂响应式页面。
 
 `smoke-installed.cjs` 可通过 `PRESALES_SOLUTION_TOOL_EXECUTABLE` 指定候选 EXE。它读取候选包版本、使用独立 profile，并在退出时关闭自身测试进程；不会关闭正在使用的生产工具。
 
-检查成功并关闭测试实例后，清除本次隔离 profile，保留报告与验收截图；失败时保留 profile 和已有诊断文件，便于排查。
+`PRESALES_SOLUTION_TOOL_TEST_DATA` 会将测试资料库放在本次 profile 下，避免触及工具根目录的真实资料库。项目资料库专项覆盖真实文件字节、重启恢复、手动投递标记、连续新建、同 ID ZIP 副本和目录隔离。报告、截图及诊断数据不提交到仓库；清理测试数据前先确认对应实例已关闭，不要将生产 profile 当作测试输出。
+
+当前版本优先使用 `tests/desktop/` 的验收入口。`npm run test:e2e` 对应的旧网页端测试尚未适配 V1.8.0，不属于本次通过范围，当前 CI 也未执行这组测试。
 
 ## 打包与更新
 
@@ -71,7 +77,7 @@ npm run package:desktop
 node scripts/update-desktop.cjs
 ```
 
-更新入口的候选验证、替换和失败恢复流程见 [发行说明](releases.md)。已安装稳定版只在候选验证成功后替换；成功后删除临时恢复副本和旧发行包。
+更新入口的候选验证、替换和失败恢复流程见 [发行说明](releases.md)。已安装稳定版只在候选验证成功后替换；成功后删除临时恢复副本和旧发行包。工具根目录的“项目资料库”、应用 profile 及用户明确保留的原版不属于发行副本清理范围。
 
 修改应用版本时使用 `npm version <版本号> --no-git-tag-version --ignore-scripts` 更新顶层包元数据，再按需更新发行说明和原生客户端版本。不要在依赖锁文件中全文替换版本字符串。
 

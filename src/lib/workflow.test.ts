@@ -1,8 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { compareBaselines, createRequirement, createSampleProject, inferProjectStage, localizeBuiltInProject, validateProject } from "./workflow";
 import { createEmptyProject, createPresalesRound, isLegacyUntouchedPresalesRound, projectManifestSchema } from "./workspace-schema";
 
 describe("solution workflow rules", () => {
+  it("creates distinct projects even at the same instant", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-11T12:00:00.000Z"));
+    try {
+      const first = createEmptyProject("zh"), second = createEmptyProject("zh");
+      expect(first.updatedAt).toBe(second.updatedAt);
+      expect(first.id).not.toBe(second.id);
+    } finally { vi.useRealTimers(); }
+  });
+
   it("starts new projects without a communication round and identifies only the untouched legacy default", () => {
     const project = createEmptyProject("zh");
     expect(project.presalesRounds).toEqual([]);

@@ -544,7 +544,7 @@ export function createEmptyProject(locale: Locale = "zh"): ProjectManifest {
   const updatedAt = new Date().toISOString();
   return {
     schemaVersion: SCHEMA_VERSION,
-    id: `solution-${updatedAt.slice(0, 10)}`,
+    id: createId("solution"),
     name: locale === "zh" ? "新建解决方案项目" : "New solution project",
     customerAlias: "",
     industry: "",

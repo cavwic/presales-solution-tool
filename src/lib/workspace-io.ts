@@ -1,5 +1,5 @@
 import { projectToCsv, projectToMarkdown, presentationMarkdown } from "./exporters";
-import { pickDesktopDirectory, persistDesktopDirectory, restoreDesktopDirectory } from "./desktop-bridge";
+import { pickDesktopDirectory, persistDesktopDirectory, restoreDesktopDirectory, clearDesktopDirectory } from "./desktop-bridge";
 import { projectManifestSchema, SCHEMA_VERSION, workspaceManifestSchema, type ProjectManifest } from "./workspace-schema";
 import {
   WORKSPACE_MODULE_DIRECTORIES,
@@ -183,6 +183,23 @@ export async function persistWorkspaceDirectory(handle: DirectoryHandleLike): Pr
 export async function restoreWorkspaceDirectory(): Promise<DirectoryHandleLike | null> {
   return restoreDirectoryHandle(ACTIVE_HANDLE_KEY);
 }
+
+async function clearDirectoryBinding(key: string): Promise<void> {
+  if (typeof window !== "undefined" && window.bidDesktop) return clearDesktopDirectory(key);
+  if (typeof indexedDB === "undefined") return;
+  const database = await openHandleDatabase();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(HANDLE_STORE, "readwrite");
+    transaction.objectStore(HANDLE_STORE).delete(key);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
+}
+
+export async function clearWorkspaceDirectory(): Promise<void> { return clearDirectoryBinding(ACTIVE_HANDLE_KEY); }
+export async function clearProjectOutputDirectory(): Promise<void> { return clearDirectoryBinding(PROJECT_OUTPUT_HANDLE_KEY); }
+export async function persistProjectOutputDirectory(handle: DirectoryHandleLike): Promise<void> { return persistDirectoryHandle(PROJECT_OUTPUT_HANDLE_KEY, handle); }
 
 async function readJson(directory: DirectoryHandleLike, name: string): Promise<unknown> {
   const handle = await directory.getFileHandle(name);

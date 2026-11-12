@@ -18,6 +18,7 @@ import {
   FileText,
   FolderCog,
   FolderOpen,
+  History,
   PackageCheck,
   Pencil,
   Plus,
@@ -25,6 +26,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   Sparkles,
   Trash2,
@@ -33,6 +35,10 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import ModelControls from "./ModelControls";
+import WorkbenchDialog from "./WorkbenchDialog";
+import ProjectHistoryDialog from "./ProjectHistoryDialog";
+import { libraryApi, saveProjectToLibrary, loadProjectFromLibrary } from "../lib/project-library";
+import { DesktopDirectoryHandle } from "../lib/desktop-bridge";
 import FileCleanupPanel, { type CleanupCategory, type CleanupGeneratedFile, type CleanupSelection } from "./FileCleanupPanel";
 import { executeGeneratedCleanup, previewGeneratedCleanup, type GeneratedCleanupCandidate, type GeneratedCleanupPreview } from "../lib/file-cleanup";
 import type { CleanupPreview as NativeCleanupPreview } from "../lib/desktop-bridge";
@@ -82,13 +88,17 @@ import {
   chooseProjectOutputDirectory,
   chooseTaskOutputDirectory,
   copyWorkspaceFilesToOutput,
-  clearPersistedSourceFiles,
+  clearWorkspaceDirectory,
+  clearProjectOutputDirectory,
+  persistProjectOutputDirectory,
+  PROJECT_STAGE_DIRECTORIES,
   ensureProjectStageDirectories,
   importProjectArchive,
   loadActiveProject,
   listWorkspaceOutputFiles,
   loadSourceFilesFromDirectory,
-  migrateWorkspaceDirectory,
+  projectManagedFileReferences,
+  writeWorkspaceFileToRelativePath,
   persistWorkspaceDirectory,
   persistSourceFiles,
   readGeneratedFileFromDirectory,
@@ -557,7 +567,20 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
   const [headerSettingsTarget, setHeaderSettingsTarget] = useState<HTMLElement | null>(null);
   const solutionApp = useRef<HTMLDivElement>(null);
   const projectHeader = useRef<HTMLElement>(null);
-  const projectSettingsSection = useRef<HTMLElement>(null);
+  const projectTitle = useRef<HTMLTextAreaElement>(null);
+  const workspaceScrollPane = () => {
+    const documentPane = solutionApp.current?.querySelector<HTMLElement>(".linear-document");
+    if (documentPane && ["auto", "scroll"].includes(getComputedStyle(documentPane).overflowY)) return documentPane;
+    return solutionApp.current?.querySelector<HTMLElement>(".linear-content-scroll") ?? null;
+  };
+  const revealWorkspaceElement = (element: HTMLElement | null, center = false) => {
+    const pane = workspaceScrollPane();
+    if (!element || !pane) return;
+    const target = element.getBoundingClientRect();
+    const viewport = pane.getBoundingClientRect();
+    const inset = center ? Math.max(16, (pane.clientHeight - target.height) / 2) : 18;
+    pane.scrollTo({ top: Math.max(0, pane.scrollTop + target.top - viewport.top - inset), behavior: "smooth" });
+  };
   useEffect(() => { setHeaderSettingsTarget(document.getElementById("workbench-header-settings")); }, []);
   useEffect(() => {
     const app = solutionApp.current;
@@ -575,7 +598,31 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     return () => observer.disconnect();
   }, []);
   const [view, setView] = useState<View>(initialView);
+  useEffect(() => {
+    for (const selector of [".linear-document", ".linear-content-scroll"]) {
+      solutionApp.current?.querySelector<HTMLElement>(selector)?.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [view]);
+  const [materialQuery, setMaterialQuery] = useState("");
   const [project, setProject] = useState<ProjectManifest>(() => createEmptyProject("zh"));
+  useEffect(() => {
+    const title = projectTitle.current;
+    if (!title) return;
+    const resize = () => {
+      title.style.height = "auto";
+      title.style.height = `${title.scrollHeight + 2}px`;
+    };
+    let width = title.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (title.clientWidth === width) return;
+      width = title.clientWidth;
+      resize();
+    });
+    observer.observe(title);
+    resize();
+    void document.fonts.ready.then(() => { if (title.isConnected) resize(); });
+    return () => observer.disconnect();
+  }, [project.name]);
   const [ready, setReady] = useState(false);
   const [notice, setNotice] = useState("");
   const [workspaceRecovery, setWorkspaceRecovery] = useState<{ key: string; content: string; saved: boolean } | null>(null);
@@ -622,6 +669,14 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
   const [returnState, setReturnState] = useState<ModelActionReturnState | null>(null);
   const [pendingModelAction, setPendingModelAction] = useState<PendingModelAction | null>(null);
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
+  const [projectHistoryOpen, setProjectHistoryOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [projectTransitioning, setProjectTransitioning] = useState(false);
+  const [libraryRootPath, setLibraryRootPath] = useState("");
+  const [libraryError, setLibraryError] = useState("");
+  const [storageWarning, setStorageWarning] = useState(false);
+  const [projectDialogError, setProjectDialogError] = useState("");
   const [pendingDirectoryChange, setPendingDirectoryChange] = useState<PendingDirectoryChange | null>(null);
   const [projectPathRequired, setProjectPathRequired] = useState(false);
   const sourceInput = useRef<HTMLInputElement>(null);
@@ -630,6 +685,9 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
   const modelActionAwaitingSettings = useRef<PendingModelAction | null>(null);
   const projectRef = useRef(project);
   const sourceFilesRef = useRef(sourceFiles);
+  const directoryRef = useRef(directoryHandle);
+  const generatedBlobsRef = useRef(generatedBlobs);
+  const outputDirectoryRef = useRef(outputDirectoryHandle);
   const knownSourceFilesRef = useRef<Map<string, File>>(new Map());
   const historyRef = useRef(new WorkspaceHistory(3));
   const busyRef = useRef(busy);
@@ -637,8 +695,31 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
 
   projectRef.current = project;
   sourceFilesRef.current = sourceFiles;
+  directoryRef.current = directoryHandle;
+  generatedBlobsRef.current = generatedBlobs;
+  outputDirectoryRef.current = outputDirectoryHandle;
   busyRef.current = busy;
   for (const [sourceId, file] of sourceFiles) knownSourceFilesRef.current.set(sourceId, file);
+
+  const archiveCurrentProject = async () => {
+    if (!libraryApi()) return null;
+    const saved = await saveProjectToLibrary({ project: projectRef.current, sourceFiles: new Map(sourceFilesRef.current), generatedBlobs: new Map(generatedBlobsRef.current), directory: directoryRef.current });
+    setLibraryError("");
+    return saved;
+  };
+
+  useEffect(() => {
+    const api = libraryApi();
+    if (api) void api.info().then(info => setLibraryRootPath(info.rootPath)).catch(error => setLibraryError(error instanceof Error ? error.message : (locale === "zh" ? "无法打开项目资料库。" : "Could not open the project library.")));
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !filesHydrated || workspaceRecovery || projectTransitioning || !libraryApi()) return;
+    const timer = window.setTimeout(() => {
+      void archiveCurrentProject().catch(error => setLibraryError((locale === "zh" ? "资料库保存失败：" : "Project library save failed: ") + (error instanceof Error ? error.message : String(error))));
+    }, 950);
+    return () => window.clearTimeout(timer);
+  }, [ready, filesHydrated, workspaceRecovery, projectTransitioning, project, sourceFiles, generatedBlobs, directoryHandle, locale]);
 
   const publishHistoryState = () => {
     window.dispatchEvent(new CustomEvent("cavwic-history-state", {
@@ -769,8 +850,19 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
       }
       const restoredHandle = await restoreWorkspaceDirectory().catch(() => null);
       const restoredOutputHandle = await restoreProjectOutputDirectory().catch(() => null);
-      const handle = isUsableProjectDirectory(restoredHandle) ? restoredHandle : null;
+      let handle = isUsableProjectDirectory(restoredHandle) ? restoredHandle : null;
       const outputHandle = isUsableProjectDirectory(restoredOutputHandle) ? restoredOutputHandle : null;
+      // Recover an interrupted managed-project switch without pairing one
+      // project's cache with another project's files and autosaving over them.
+      if (handle) {
+        try {
+          const diskProject = await loadActiveProject(handle);
+          if (diskProject.id !== nextProject.id) {
+            if (handle instanceof DesktopDirectoryHandle && handle.native.rootId.startsWith("managed_")) nextProject = syncProjectStage(localizeBuiltInProject(diskProject, nextLocale));
+            else { handle = null; setStorageWarning(true); }
+          }
+        } catch { handle = null; setStorageWarning(true); }
+      }
       const persistedFiles = await restoreSourceFiles(nextProject.id).catch(() => new Map<string, File>());
       if (handle) {
         const directoryFiles = await loadSourceFilesFromDirectory(handle, nextProject).catch(() => new Map<string, File>());
@@ -840,7 +932,7 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
       if (!pending) return;
       modelActionAwaitingSettings.current = null;
       setResumeModelAction(pending);
-      window.requestAnimationFrame(() => document.getElementById(pending.anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      window.requestAnimationFrame(() => revealWorkspaceElement(document.getElementById(pending.anchorId)));
     };
     window.addEventListener("bid-model-settings-saved", resume);
     return () => window.removeEventListener("bid-model-settings-saved", resume);
@@ -871,19 +963,22 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     if (!ready || !returnState) return;
     const timer = window.setTimeout(() => {
       const anchor = returnState.anchorId ? document.getElementById(returnState.anchorId) : null;
-      if (anchor) anchor.scrollIntoView({ block: "center" });
-      else window.scrollTo({ top: returnState.scrollY });
+      if (anchor) revealWorkspaceElement(anchor, true);
+      else workspaceScrollPane()?.scrollTo({ top: returnState.scrollY });
       setReturnState(null);
     }, 50);
     return () => window.clearTimeout(timer);
   }, [ready, returnState, view]);
 
   useEffect(() => {
-    if (pendingModelAction || ocrChoiceSourceIds || projectPathRequired || outputPathRequired || workspaceRecovery) modelChoicePrimary.current?.focus();
+    if (pendingModelAction || ocrChoiceSourceIds || projectPathRequired || outputPathRequired || workspaceRecovery) {
+      setProjectSettingsOpen(false);
+      window.requestAnimationFrame(() => modelChoicePrimary.current?.focus({ preventScroll: true }));
+    }
   }, [ocrChoiceSourceIds, outputPathRequired, pendingModelAction, projectPathRequired, workspaceRecovery]);
 
   useEffect(() => {
-    if (!ready || workspaceRecovery) return;
+    if (!ready || workspaceRecovery || projectTransitioning) return;
     try {
       localStorage.setItem("cavwic-solution-workspace", JSON.stringify({ ...project, updatedAt: new Date().toISOString() }));
       setNotice(t.saved);
@@ -892,25 +987,25 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     } catch {
       setNotice(locale === "zh" ? "项目缓存空间不足，请写入项目目录。" : "The local cache is full. Save the project to its folder.");
     }
-  }, [project, locale, ready, t.saved, workspaceRecovery]);
+  }, [project, locale, ready, t.saved, workspaceRecovery, projectTransitioning]);
 
   useEffect(() => {
-    if (!ready || workspaceRecovery || !isUsableProjectDirectory(directoryHandle)) return;
+    if (!ready || workspaceRecovery || projectTransitioning || !isUsableProjectDirectory(directoryHandle)) return;
     const timer = window.setTimeout(() => {
       void saveProjectStateToDirectory(directoryHandle, project, sourceFiles)
         .then(() => setNotice(t.projectPathSaved))
         .catch(() => setNotice(locale === "zh" ? "项目路径授权已失效，请重新选择。" : "Project folder access expired. Choose it again."));
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [directoryHandle, locale, project, ready, sourceFiles, t.projectPathSaved, workspaceRecovery]);
+  }, [directoryHandle, locale, project, ready, sourceFiles, t.projectPathSaved, workspaceRecovery, projectTransitioning]);
 
   useEffect(() => {
-    if (!ready || !filesHydrated || !sourceFiles.size) return;
+    if (!ready || !filesHydrated || projectTransitioning || !sourceFiles.size) return;
     const timer = window.setTimeout(() => {
       void persistSourceFiles(project.id, sourceFiles).catch(() => undefined);
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [filesHydrated, project.id, ready, sourceFiles]);
+  }, [filesHydrated, project.id, ready, sourceFiles, projectTransitioning]);
 
   const persistProjectSnapshot = (snapshot: ProjectManifest) => {
     try {
@@ -2841,10 +2936,26 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     }
   };
 
-  const resetCurrentProject = () => {
-    const previousProjectId = project.id;
-    commitProject(syncProjectStage(createEmptyProject(locale)));
-    setSourceFiles(new Map());
+  const activateProject = async (nextProject: ProjectManifest, files: Map<string, File>, directory: DirectoryHandleLike | null, closeSettings = true) => {
+    const previousDirectory = directoryRef.current, previousOutput = outputDirectoryRef.current;
+    try {
+      await clearProjectOutputDirectory();
+      if (directory) await persistWorkspaceDirectory(directory);
+      else await clearWorkspaceDirectory();
+    } catch (error) {
+      if (previousDirectory) await persistWorkspaceDirectory(previousDirectory).catch(() => undefined);
+      else await clearWorkspaceDirectory().catch(() => undefined);
+      if (previousOutput) await persistProjectOutputDirectory(previousOutput).catch(() => undefined);
+      throw error;
+    }
+    historyRef.current.reset();
+    commitProject(syncProjectStage(nextProject), "", false);
+    sourceFilesRef.current = files;
+    knownSourceFilesRef.current = new Map(files);
+    setSourceFiles(files);
+    setDirectoryHandle(directory);
+    setStorageWarning(false);
+    setOutputDirectoryHandle(null);
     setGeneratedBlobs(new Map());
     setSelectedSourceId("");
     setSelectedRequirementId("");
@@ -2854,7 +2965,97 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     setExpandedBidFileId("");
     setWorkspaceOutputFiles([]);
     setSelectedOutputPaths(new Set());
-    void clearPersistedSourceFiles(previousProjectId).catch(() => undefined);
+    setParticipantDrafts({});
+    setResumeModelAction(null);
+    setReturnState(null);
+    setPendingModelAction(null);
+    if (closeSettings) setProjectSettingsOpen(false);
+    setFilesHydrated(true);
+    setView("presales");
+    await persistSourceFiles(nextProject.id, files).catch(() => undefined);
+  };
+
+  const resetCurrentProject = () => {
+    if (busyRef.current || !ready) return;
+    setProjectSettingsOpen(false);
+    setProjectHistoryOpen(false);
+    setNewProjectName("");
+    setProjectDialogError("");
+    setNewProjectOpen(true);
+  };
+
+  const createManagedProject = async () => {
+    if (!newProjectName.trim() || busyRef.current) return;
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true); setProjectDialogError("");
+    try {
+      await archiveCurrentProject();
+      const fresh = syncProjectStage({ ...createEmptyProject(locale), id: createId("solution"), name: newProjectName.trim() });
+      const saved = libraryApi() ? await saveProjectToLibrary({ project: fresh, sourceFiles: new Map(), generatedBlobs: new Map(), directory: null }) : null;
+      await activateProject(saved?.project || fresh, new Map(), saved?.directory || null);
+      setNewProjectOpen(false);
+      setNotice(locale === "zh" ? "新项目已创建，上一项目已保留。" : "Project created. Your previous project has been kept.");
+    } catch (error) { setProjectDialogError(error instanceof Error ? error.message : (locale === "zh" ? "创建失败，当前项目保持不变。" : "Could not create the project. Your current project is unchanged.")); }
+    finally { setProjectTransitioning(false); setBusy(false); busyRef.current = false; }
+  };
+
+  const openHistoryProject = async (id: string) => {
+    if (busyRef.current) return;
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true);
+    try {
+      await archiveCurrentProject();
+      const saved = await loadProjectFromLibrary(id);
+      await activateProject(saved.project, saved.sourceFiles, saved.directory);
+      setProjectHistoryOpen(false);
+      setNotice(saved.entry.missingFiles.length
+        ? (locale === "zh" ? `项目已载入，${saved.entry.missingFiles.length} 个文件需要重新补齐。` : `Project loaded. ${saved.entry.missingFiles.length} files need to be restored.`)
+        : t.loaded);
+    } finally { setProjectTransitioning(false); setBusy(false); busyRef.current = false; }
+  };
+
+  const openProjectHistory = async () => {
+    if (busyRef.current) return;
+    setProjectSettingsOpen(false);
+    setBusy(true); busyRef.current = true;
+    try { await archiveCurrentProject(); } catch (error) { setLibraryError(error instanceof Error ? error.message : String(error)); }
+    finally { setBusy(false); busyRef.current = false; setProjectHistoryOpen(true); }
+  };
+
+  const useManagedProjectFolder = async () => {
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true); setProjectDialogError("");
+    try {
+      const saved = await archiveCurrentProject();
+      if (!saved) throw new Error(locale === "zh" ? "请在桌面版中使用项目资料库。" : "The project library is available in the desktop app.");
+      if (saved.entry.missingFiles.length) throw new Error(locale === "zh" ? `已保存项目记录，但有 ${saved.entry.missingFiles.length} 个文件未找到。请先补齐原目录中的文件，再切换存储位置。` : `The project record was saved, but ${saved.entry.missingFiles.length} files are unavailable. Restore those files before changing the storage location.`);
+      await persistWorkspaceDirectory(saved.directory);
+      historyRef.current.reset();
+      commitProject(saved.project, "", false);
+      setDirectoryHandle(saved.directory);
+      setStorageWarning(false);
+      setNotice(locale === "zh" ? "已使用工具资料库目录，原目录文件保持不变。" : "Using the project library folder. Files in the previous folder are unchanged.");
+    } catch (error) { setProjectDialogError(error instanceof Error ? error.message : String(error)); }
+    finally { setProjectTransitioning(false); setBusy(false); busyRef.current = false; }
+  };
+
+  const importExistingHistory = async () => {
+    if (!libraryApi()) throw new Error(locale === "zh" ? "请在桌面版中收录项目。" : "Use the desktop app to add existing projects.");
+    const directory = await chooseWorkspaceDirectory(directoryHandle);
+    const projectsDirectory = await directory.getDirectoryHandle("projects");
+    if (!projectsDirectory.entries) throw new Error(locale === "zh" ? "无法枚举此项目目录。" : "This folder cannot be listed.");
+    const existing = new Set((await libraryApi()!.list()).map(entry => entry.id));
+    let imported = 0, skipped = 0;
+    for await (const [, child] of projectsDirectory.entries()) {
+      if (!("getDirectoryHandle" in child)) continue;
+      const record = await child.getFileHandle("project.json").then(file => file.getFile()).then(file => file.text()).catch(() => null);
+      if (!record) continue;
+      const parsed = (() => { try { return projectManifestSchema.safeParse(JSON.parse(record)); } catch { return null; } })();
+      if (!parsed?.success) continue;
+      if (existing.has(parsed.data.id)) { skipped++; continue; }
+      const files = await loadSourceFilesFromDirectory(directory, parsed.data);
+      await saveProjectToLibrary({ project: parsed.data, sourceFiles: files, generatedBlobs: new Map(), directory });
+      existing.add(parsed.data.id); imported++;
+    }
+    if (!imported && !skipped) throw new Error(locale === "zh" ? "未找到项目记录，请选择包含 workspace.json 和 projects 的项目目录。" : "No project records found. Choose a folder containing workspace.json and projects.");
+    setNotice(locale === "zh" ? `已收录 ${imported} 个项目，保留 ${skipped} 个已有记录。` : `Added ${imported} projects; kept ${skipped} existing records.`);
   };
 
   const chooseDirectory = async (mode: PendingDirectoryChange["mode"]) => {
@@ -2871,29 +3072,46 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     if (!pendingDirectoryChange) return;
     const { handle, mode } = pendingDirectoryChange;
     setPendingDirectoryChange(null);
-    setBusy(true);
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true); setProjectDialogError("");
     try {
-      if (mode === "migrate" && directoryHandle) {
-        await saveProjectStateToDirectory(directoryHandle, project, sourceFiles);
-        await migrateWorkspaceDirectory(directoryHandle, handle);
+      const archived = await archiveCurrentProject();
+      const snapshot = archived?.project || projectRef.current;
+      const sourceDirectory = archived?.directory || directoryRef.current;
+      let targetProject: ProjectManifest | null = null;
+      try { targetProject = await loadActiveProject(handle); }
+      catch (error) {
+        if (!(error instanceof Error) || !["NotFoundError"].includes(error.name)) throw new Error(locale === "zh" ? "无法确认所选目录中的项目记录，未写入文件。请选择空目录或从历史项目收录。" : "The project record in this folder could not be verified. No files were written. Choose an empty folder or add it through Project history.");
+      }
+      if (targetProject && targetProject.id !== snapshot.id) throw new Error(locale === "zh" ? "所选目录属于另一个项目。请选择独立目录，避免覆盖其他项目。" : "This folder belongs to a different project. Choose a separate folder to avoid overwriting its files.");
+      if (!targetProject && handle.entries) {
+        const managedNames = new Set<string>(["workspace.json", "projects", "library", ...PROJECT_STAGE_DIRECTORIES]);
+        for await (const [name, child] of handle.entries()) if (managedNames.has(name)) {
+          if (!("entries" in child) || !child.entries) throw new Error(locale === "zh" ? "所选目录已包含项目资料，请选择独立空目录。" : "This folder already contains project data. Choose a separate empty folder.");
+          for await (const _entry of child.entries()) throw new Error(locale === "zh" ? "所选目录已包含项目资料，请选择独立空目录或收录已有项目。" : "This folder already contains project data. Choose an empty folder or add the existing project to history.");
+        }
+      }
+      if (sourceDirectory && !(await sourceDirectory.isSameEntry?.(handle))) for (const reference of projectManagedFileReferences(snapshot).values()) {
+        const file = sourceFilesRef.current.get(reference.sourceId) || await readWorkspaceFileFromRelativePath(sourceDirectory, reference.relativePath).catch(() => null);
+        if (file) await writeWorkspaceFileToRelativePath(handle, reference.relativePath, file);
       }
       await ensureProjectStageDirectories(handle);
-      const nextProject = syncProjectStage({ ...project, localPathHint: handle.name, updatedAt: new Date().toISOString() });
-      await saveProjectStateToDirectory(handle, nextProject, sourceFiles);
+      const nextProject = syncProjectStage({ ...snapshot, localPathHint: handle.name, updatedAt: new Date().toISOString() });
+      await saveProjectStateToDirectory(handle, nextProject, sourceFilesRef.current);
       await persistWorkspaceDirectory(handle);
       historyRef.current.reset();
       commitProject(nextProject, "", false);
       setDirectoryHandle(handle);
+      setStorageWarning(false);
       window.queueMicrotask(publishHistoryState);
       setNotice(mode === "migrate"
-        ? (locale === "zh" ? `项目已迁移到“${handle.name}”。` : `Project migrated to “${handle.name}”.`)
+        ? (locale === "zh" ? `项目已复制到“${handle.name}”，原文件已保留。` : `Project copied to “${handle.name}”. The original files have been kept.`)
         : (locale === "zh" ? `项目路径已设置为“${handle.name}”。` : `Project folder set to “${handle.name}”.`));
     } catch (error) {
-      setNotice(error instanceof Error && error.message.includes("inside")
+      setProjectDialogError(error instanceof Error && error.message.includes("inside")
         ? (locale === "zh" ? "新项目路径不能位于当前项目的受管目录中。" : "The new project folder cannot be inside the current managed workspace.")
-        : (locale === "zh" ? "项目路径设置或迁移失败，请检查新旧目录中的受管文件后重试。" : "Project folder setup or migration failed. Check the managed files in both folders before retrying."));
+        : error instanceof Error ? error.message : (locale === "zh" ? "项目路径设置或迁移失败，请检查新旧目录中的受管文件后重试。" : "Project folder setup or migration failed. Check the managed files in both folders before retrying."));
     } finally {
-      setBusy(false);
+      setProjectTransitioning(false); setBusy(false); busyRef.current = false;
     }
   };
   const syncDirectory = async () => {
@@ -2908,26 +3126,33 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
   };
   const rescanDirectory = async () => {
     if (!directoryHandle) return;
-    setBusy(true);
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true); setProjectDialogError("");
     try {
-      commitProject(syncProjectStage(await loadActiveProject(directoryHandle)));
+      const reloaded = syncProjectStage(await loadActiveProject(directoryHandle));
+      if (reloaded.id !== projectRef.current.id) throw new Error(locale === "zh" ? "目录中的项目已改变。请从历史项目收录，当前项目保持不变。" : "This folder now contains a different project. Add it through Project history; your current project is unchanged.");
+      const files = await loadSourceFilesFromDirectory(directoryHandle, reloaded);
+      if (libraryApi()) await saveProjectToLibrary({ project: reloaded, sourceFiles: files, generatedBlobs: new Map(), directory: directoryHandle });
+      await activateProject(reloaded, files, directoryHandle, false);
       setNotice(t.loaded);
-    } catch {
-      setNotice(t.invalid);
-    } finally { setBusy(false); }
+    } catch (error) {
+      setProjectDialogError(error instanceof Error ? error.message : t.invalid);
+    } finally { setProjectTransitioning(false); setBusy(false); busyRef.current = false; }
   };
   const importArchive = async (file?: File) => {
     if (!file) return;
-    setBusy(true);
+    setBusy(true); busyRef.current = true; setProjectTransitioning(true); setProjectDialogError("");
     try {
+      await archiveCurrentProject();
       const imported = await importProjectArchive(file);
-      const nextProject = syncProjectStage(imported.project);
-      commitProject(nextProject);
-      setSourceFiles(imported.sourceFiles);
-      if (directoryHandle) await saveProjectStateToDirectory(directoryHandle, nextProject, imported.sourceFiles);
-      setNotice(t.loaded);
-    } catch { setNotice(t.invalid); }
-    finally { setBusy(false); if (archiveInput.current) archiveInput.current.value = ""; }
+      const existing = libraryApi() ? await libraryApi()!.list() : [];
+      const asCopy = existing.some(entry => entry.id === imported.project.id);
+      const nextProject = syncProjectStage(asCopy ? { ...imported.project, id: createId("solution"),
+        name: locale === "zh" ? `${imported.project.name}（导入副本）` : `${imported.project.name} (imported copy)`, updatedAt: new Date().toISOString() } : imported.project);
+      const saved = libraryApi() ? await saveProjectToLibrary({ project: nextProject, sourceFiles: imported.sourceFiles, generatedBlobs: new Map(), directory: null }) : null;
+      await activateProject(saved?.project || nextProject, imported.sourceFiles, saved?.directory || null);
+      setNotice(asCopy ? (locale === "zh" ? "已作为独立副本导入，历史项目保持不变。" : "Imported as a separate copy. The saved project is unchanged.") : t.loaded);
+    } catch (error) { setProjectDialogError(error instanceof Error ? error.message : t.invalid); }
+    finally { setProjectTransitioning(false); setBusy(false); busyRef.current = false; if (archiveInput.current) archiveInput.current.value = ""; }
   };
   const restoreWorkspaceAfterCacheFailure = async () => {
     setBusy(true);
@@ -3020,18 +3245,12 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
     }
   };
 
-  const renderProjectContext = () => <section className="work-section">
+  const renderProjectContext = () => <section className="work-section linear-project-context" id="project-context">
     <div className="section-heading">
       <div><h2>{t.projectContext}</h2></div>
       <span>{project.schemaVersion}</span>
     </div>
     <div className="field-grid">
-      <Field label={t.projectName}><input value={project.name} onChange={(event) => updateProject("name", event.target.value)} /></Field>
-      <Field label={t.customer}><input value={project.customerAlias} onChange={(event) => updateProject("customerAlias", event.target.value)} /></Field>
-      <Field label={t.industry}><input value={project.industry} onChange={(event) => updateProject("industry", event.target.value)} /></Field>
-      <Field label={t.owner}><input value={project.owner} onChange={(event) => updateProject("owner", event.target.value)} /></Field>
-      <Field label={t.budget}><input value={project.budget} onChange={(event) => updateProject("budget", event.target.value)} /></Field>
-      <Field label={t.deadline}><LocalizedTemporalInput type="date" locale={locale} ariaLabel={t.deadline} value={project.deadline} onChange={(value) => updateProject("deadline", value)}/></Field>
       <ConfirmableTextarea fieldId="project-objective" label={t.objective} locale={locale} rows={4} wide value={project.objective} confirmed={project.confirmedTextFields.includes("project-objective")} onChange={(value) => updateProject("objective", value)} onConfirmedChange={(confirmed) => setTextFieldConfirmed("project-objective", confirmed)}/>
       <ConfirmableTextarea fieldId="project-constraints" label={t.constraints} locale={locale} rows={4} wide value={project.constraints} confirmed={project.confirmedTextFields.includes("project-constraints")} onChange={(value) => updateProject("constraints", value)} onConfirmedChange={(confirmed) => setTextFieldConfirmed("project-constraints", confirmed)}/>
     </div>
@@ -3039,7 +3258,7 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
 
   const renderPresales = () => <>
     {renderProjectContext()}
-    <section className="work-section">
+    <section className="work-section" id="project-communications">
       <div className="section-heading"><div><h2>{locale === "zh" ? "客户沟通与文件响应" : "Customer communications and file responses"}</h2></div><button className="icon-command" type="button" onClick={() => void addPresalesRound()} title={locale === "zh" ? "新增沟通节点" : "Add communication node"} aria-label={locale === "zh" ? "新增沟通节点" : "Add communication node"}><Plus size={18}/></button></div>
       <div className="presales-rounds">
         <div className="presales-round-head"><span>{locale === "zh" ? "沟通节点" : "Communication"}</span><span>{locale === "zh" ? "客户信息及需求" : "Customer information and needs"}</span><span>{locale === "zh" ? "执行清单与生成要求" : "Actions and generation request"}</span><span>{locale === "zh" ? "生成文件列表" : "Generated files"}</span></div>
@@ -3345,8 +3564,11 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
       { format: "xlsx", label: "Excel", accept: ".xlsx" },
       { format: "pptx", label: "PowerPoint", accept: ".pptx" },
     ];
-    return <section className="project-settings-panel" ref={projectSettingsSection} aria-label={locale === "zh" ? "项目设置" : "Project settings"}>
-      <div className="project-settings-heading"><div><h2>{locale === "zh" ? "项目设置" : "Project settings"}</h2></div><button className="row-delete" type="button" aria-label={locale === "zh" ? "关闭项目设置" : "Close project settings"} onClick={() => setProjectSettingsOpen(false)}><X size={18}/></button></div>
+    return <section className="project-settings-panel" aria-label={locale === "zh" ? "项目存储与模板" : "Project storage and templates"}>
+      <div className="library-location"><strong>{locale === "zh" ? "工具项目资料库" : "Project library"}</strong><span>{libraryRootPath || (locale === "zh" ? "桌面版自动建立资料库" : "The desktop app creates the library automatically")}</span><div><button className="command-button" type="button" disabled={busy || !libraryApi()} onClick={() => void libraryApi()?.openFolder({}).catch(error => setProjectDialogError(error.message))}><FolderOpen size={17}/>{locale === "zh" ? "打开资料库" : "Open library folder"}</button><button className="command-button" type="button" disabled={busy || !libraryApi()} onClick={() => void useManagedProjectFolder()}><Archive size={17}/>{locale === "zh" ? "使用工具资料库" : "Use library folder"}</button></div></div>
+      {projectDialogError && <p className="dialog-error" role="alert">{projectDialogError}</p>}
+      {libraryError && <p className="dialog-error" role="alert">{libraryError}</p>}
+      {storageWarning && <p className="dialog-error" role="status">{locale === "zh" ? "当前项目已保留。原目录的项目记录不匹配或无法读取，请选择独立目录，或使用工具资料库。" : "Your current project has been kept. The previous folder contains a different or unreadable project record. Choose a separate folder or use the project library."}</p>}
       <div className="project-path-settings">
         <label><span>{locale === "zh" ? "项目路径" : "Project folder"}</span><input readOnly disabled={Boolean(directoryHandle)} value={directoryHandle?.name || ""} placeholder={locale === "zh" ? "尚未选择" : "Not selected"}/></label>
         <div className="project-path-actions">
@@ -3544,24 +3766,79 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
   };
 
   const content = view === "presales" ? renderPresales() : view === "requirements" ? renderRequirements() : view === "bid" ? renderBid() : view === "handover" ? renderHandover() : renderOutputs();
+  const visibleMaterials = project.sources.filter((source) => source.name.toLocaleLowerCase().includes(materialQuery.trim().toLocaleLowerCase()));
+  const pendingPresalesActions = project.presalesRounds.flatMap((round) => round.actions
+    .filter((action) => action.status !== "done" && (action.title.trim() || getActionResponseTarget(round, action).name))
+    .map((action) => ({ round, action })));
+  const pendingHandoverTasks = project.handover.tasks.filter((task) => task.status !== "accepted" && task.title.trim());
+  const blockingIssues = issues.filter((issue) => issue.severity === "error");
+  const openProjectSettings = () => {
+    setProjectDialogError("");
+    setProjectSettingsOpen(true);
+  };
+  const jumpToWorkspaceItem = (nextView: View, targetId: string) => {
+    setView(nextView);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => revealWorkspaceElement(document.getElementById(targetId))));
+  };
 
-  return <div className="solution-app" ref={solutionApp} data-ready={ready ? "true" : "false"} onClickCapture={guardFileImport}>
-    <header className="project-header" ref={projectHeader}>
-      <div><h1>{t.project}</h1><nav className="workspace-toolbar" aria-label={locale === "zh" ? "项目操作" : "Project actions"}>
-        <button type="button" disabled={busy} aria-label={t.reset} onClick={resetCurrentProject} title={t.reset}><RotateCcw size={17}/><span>{t.reset}</span></button>
-        <button className={`project-path-command${projectSettingsOpen ? " active" : ""}`} type="button" disabled={busy} aria-expanded={projectSettingsOpen} aria-label={t.projectPath} onClick={() => { setProjectSettingsOpen(!projectSettingsOpen); if (!projectSettingsOpen) window.requestAnimationFrame(() => projectSettingsSection.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }} title={t.projectPath}><FolderCog size={17}/><span>{t.projectPath}</span></button>
-        <button className="file-cleanup-command" type="button" disabled={busy || !ready || !filesHydrated} aria-label={locale === "zh" ? "文件清理" : "File cleanup"} title={locale === "zh" ? "文件清理" : "File cleanup"} onClick={() => { setCleanupOpen(true); void scanCleanup(); }}><Trash2 size={17}/><span>{locale === "zh" ? "文件清理" : "File cleanup"}</span></button>
-      </nav></div>
-      <div className="header-metrics"><div><strong>{coverage.total}</strong><span>{t.total}</span></div><div><strong>{coverage.evidenced}</strong><span>{t.evidenced}</span></div><div><strong>{coverage.approved}</strong><span>{t.approved}</span></div><div><strong>{coverage.pending}</strong><span>{t.pending}</span></div></div>
-    </header>
+  return <div className="solution-app linear-app" ref={solutionApp} data-ready={ready ? "true" : "false"} onClickCapture={guardFileImport}>
     <ModelControls locale={locale} busy={busy} toolbarTarget={headerSettingsTarget}/>
     {cleanupOpen && <FileCleanupPanel locale={locale} busy={cleanupRunning} loading={cleanupLoading} categories={cleanupCategories} generatedFiles={cleanupFiles} message={cleanupMessage} error={cleanupError} onRefresh={() => scanCleanup()} onClean={cleanSelectedFiles} onClose={() => { if (!cleanupRunningRef.current) { ++cleanupSequence.current; setCleanupOpen(false); } }}/>} 
-    {projectSettingsOpen && renderProjectSettings()}
-    {notice && notice !== copy.zh.saved && notice !== copy.en.saved && <div className="workbench-notice" role="status" aria-live="polite">{notice}</div>}
-    <div className="workspace-shell">
-      <aside className="stage-rail" aria-label={locale === "zh" ? "解决方案流程" : "Solution lifecycle"}>{viewMeta.map((item) => { const Icon = item.icon; return <button type="button" aria-label={t[item.id]} title={t[item.id]} className={view === item.id ? "active" : ""} key={item.id} onClick={() => setView(item.id)}><span>{item.code}</span><Icon size={19}/><strong>{t[item.id]}</strong><ChevronRight size={16}/></button>; })}<div className="rail-status" data-stage={currentStage}><p>{locale === "zh" ? "当前阶段" : "Current stage"}</p><strong>{projectStageLabels[locale][currentStage]}</strong><span>{issues.filter((item) => item.severity === "error").length} {locale === "zh" ? "个阻断项" : "blocking issues"}</span></div></aside>
-      <main className="workspace-content">{content}</main>
+    {(libraryError || storageWarning || (notice && notice !== copy.zh.saved && notice !== copy.en.saved)) && <div className="workbench-notice" role="status" aria-live="polite">{libraryError || (storageWarning ? (locale === "zh" ? "项目已保留，请在项目设置中确认存储位置。" : "Your project has been kept. Confirm its storage location in Project settings.") : notice)}</div>}
+    <div className="workspace-shell linear-workspace" inert={!ready || projectTransitioning} aria-busy={!ready || projectTransitioning}>
+      <aside className="stage-rail linear-sidebar" aria-label={locale === "zh" ? "解决方案流程" : "Solution lifecycle"}>
+        <div className="linear-sidebar-heading">
+        <button className="linear-project-switcher" type="button" disabled={busy} onClick={openProjectSettings} title={t.projectPath}><span className="linear-workspace-avatar"><FolderOpen size={17}/></span><strong>{project.name || (locale === "zh" ? "未命名项目" : "Untitled project")}</strong><ChevronRight size={15}/></button>
+        <label className="linear-material-search"><Search size={16}/><input type="search" aria-label={locale === "zh" ? "查找项目资料" : "Find project materials"} placeholder={locale === "zh" ? "查找项目资料" : "Find materials"} value={materialQuery} onChange={(event) => setMaterialQuery(event.target.value)}/></label>
+        </div>
+        <div className="linear-sidebar-scroll">
+        <nav className="linear-stage-nav" aria-label={locale === "zh" ? "项目阶段" : "Project stages"}>{viewMeta.map((item) => { const Icon = item.icon; return <button type="button" aria-label={t[item.id]} title={t[item.id]} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "active" : ""} key={item.id} onClick={() => setView(item.id)}><Icon size={18}/><strong>{t[item.id]}</strong><ChevronRight size={14}/></button>; })}</nav>
+        <section className="linear-sidebar-materials" aria-label={locale === "zh" ? "项目资料" : "Project materials"}><header><h2>{locale === "zh" ? "项目资料" : "Project materials"}</h2><span>{project.sources.length}</span></header><div>{visibleMaterials.length ? visibleMaterials.map((source) => <button type="button" key={source.id} title={source.name} onClick={() => void openSourceFile(source)}><FileText size={15}/><span>{source.name}</span></button>) : <p>{materialQuery.trim() ? (locale === "zh" ? "没有匹配的资料" : "No matching materials") : (locale === "zh" ? "暂无项目资料" : "No project materials yet")}</p>}</div></section>
+        </div>
+        <nav className="workspace-toolbar linear-sidebar-footer" aria-label={locale === "zh" ? "项目操作" : "Project actions"}>
+          <button type="button" disabled={busy} aria-label={t.reset} onClick={resetCurrentProject} title={t.reset}><RotateCcw size={17}/><span>{t.reset}</span></button>
+          <button className={`project-path-command${projectSettingsOpen ? " active" : ""}`} type="button" disabled={busy} aria-expanded={projectSettingsOpen} aria-label={t.projectPath} onClick={() => { if (projectSettingsOpen) setProjectSettingsOpen(false); else openProjectSettings(); }} title={t.projectPath}><FolderCog size={17}/><span>{t.projectPath}</span></button>
+          <button className="project-history-command" type="button" disabled={busy || !ready || !filesHydrated} aria-label={locale === "zh" ? "历史项目" : "Project history"} title={locale === "zh" ? "历史项目" : "Project history"} onClick={() => void openProjectHistory()}><History size={17}/><span>{locale === "zh" ? "历史项目" : "Project history"}</span></button>
+          <button className="file-cleanup-command" type="button" disabled={busy || !ready || !filesHydrated} aria-label={locale === "zh" ? "文件清理" : "File cleanup"} title={locale === "zh" ? "文件清理" : "File cleanup"} onClick={() => { setCleanupOpen(true); void scanCleanup(); }}><Trash2 size={17}/><span>{locale === "zh" ? "文件清理" : "File cleanup"}</span></button>
+        </nav>
+      </aside>
+      <div className="linear-main-shell">
+        <header className="project-header linear-viewbar" ref={projectHeader}><div className="linear-breadcrumb"><span>{locale === "zh" ? "项目" : "Projects"}</span><ChevronRight size={14}/><span>{project.name || (locale === "zh" ? "未命名项目" : "Untitled project")}</span><ChevronRight size={14}/><strong>{t[view]}</strong></div><button className="icon-command" type="button" disabled={busy} aria-label={locale === "zh" ? "打开项目属性与设置" : "Open project properties and settings"} title={t.projectPath} onClick={openProjectSettings}><Settings2 size={17}/></button></header>
+        <div className="linear-view-tabs"><div className="linear-view-tab-label"><strong>{t[view]}</strong></div><div className="linear-view-actions">
+          {view === "requirements" && <button className="command-button" type="button" disabled={busy} onClick={() => openGuardedFilePicker(sourceInput.current)}><Upload size={16}/>{t.importSources}</button>}
+          {view === "handover" && <button className="command-button" type="button" disabled={busy} onClick={() => void addHandoverTask()}><Plus size={16}/>{locale === "zh" ? "新增任务" : "Add task"}</button>}
+          {view !== "outputs" && <button className="command-button" type="button" onClick={() => setView("outputs")}><FileOutput size={16}/>{locale === "zh" ? "查看输出" : "View outputs"}</button>}
+          {view === "outputs" && <button className="command-button" type="button" disabled={!directoryHandle || busy || outputFilesLoading} onClick={() => void refreshWorkspaceOutputFiles()}><RefreshCw size={16}/>{locale === "zh" ? "重新扫描" : "Rescan"}</button>}
+        </div></div>
+        <div className="linear-content-scroll">
+        <main className="workspace-content linear-document">
+          <div className="linear-document-heading"><span className="linear-project-symbol"><FolderOpen size={25}/></span><h1><textarea ref={projectTitle} rows={1} className="linear-document-title" aria-label={t.projectName} value={project.name} placeholder={locale === "zh" ? "未命名项目" : "Untitled project"} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.blur(); } }} onChange={(event) => updateProject("name", event.target.value.replace(/[\r\n]+/g, " "))}/></h1></div>
+          <div className="linear-document-meta"><span><BriefcaseBusiness size={14}/>{projectStageLabels[locale][currentStage]}</span>{project.owner && <span>{project.owner}</span>}{project.deadline && <span><CalendarDays size={14}/>{project.deadline}</span>}</div>
+          {content}
+        </main>
+      <aside className="linear-inspector" aria-label={locale === "zh" ? "项目属性与概况" : "Project properties and summary"}>
+        <section className="linear-inspector-properties"><h2>{locale === "zh" ? "项目属性" : "Properties"}</h2>
+          <Field label={locale === "zh" ? "客户" : "Customer"}><input aria-label={t.customer} value={project.customerAlias} onChange={(event) => updateProject("customerAlias", event.target.value)}/></Field>
+          <Field label={t.industry}><input aria-label={t.industry} value={project.industry} onChange={(event) => updateProject("industry", event.target.value)}/></Field>
+          <Field label={locale === "zh" ? "责任人" : "Owner"}><input aria-label={t.owner} value={project.owner} onChange={(event) => updateProject("owner", event.target.value)}/></Field>
+          <Field label={locale === "zh" ? "预算" : "Budget"}><input aria-label={t.budget} value={project.budget} onChange={(event) => updateProject("budget", event.target.value)}/></Field>
+          <Field label={locale === "zh" ? "截止日期" : "Deadline"}><LocalizedTemporalInput type="date" locale={locale} ariaLabel={t.deadline} value={project.deadline} onChange={(value) => updateProject("deadline", value)}/></Field>
+        </section>
+        <section className="linear-inspector-summary"><h2>{locale === "zh" ? "要求概况" : "Requirements"}</h2><div className="header-metrics"><div><strong>{coverage.total}</strong><span>{t.total}</span></div><div><strong>{coverage.evidenced}</strong><span>{t.evidenced}</span></div><div><strong>{coverage.approved}</strong><span>{t.approved}</span></div><div><strong>{coverage.pending}</strong><span>{t.pending}</span></div></div></section>
+        <section className="linear-inspector-actions"><header><h2>{locale === "zh" ? "待办事项" : "Action items"}</h2><span>{pendingPresalesActions.length + pendingHandoverTasks.length}</span></header><div className="linear-pending-list">
+          {pendingPresalesActions.map(({ round, action }) => <button type="button" key={action.id} onClick={() => jumpToWorkspaceItem("presales", `communication-${round.id}`)}><span className={`linear-task-status ${action.status}`}/><span><strong>{getActionResponseTarget(round, action).name || action.title}</strong><small>{actionStatusLabels[locale][action.status]}{action.owner ? ` · ${action.owner}` : ""}</small></span><ChevronRight size={14}/></button>)}
+          {pendingHandoverTasks.map((task) => <button type="button" key={task.id} onClick={() => { setExpandedHandoverTaskId(task.id); jumpToWorkspaceItem("handover", `handover-task-${task.id}`); }}><span className={`linear-task-status ${task.status}`}/><span><strong>{task.title}</strong><small>{handoverTaskStatusLabels[locale][task.status]}{task.owner ? ` · ${task.owner}` : ""}</small></span><ChevronRight size={14}/></button>)}
+          {!pendingPresalesActions.length && !pendingHandoverTasks.length && <p className="linear-inspector-empty">{locale === "zh" ? "暂无待办事项" : "No open action items"}</p>}
+        </div></section>
+        {blockingIssues.length > 0 && <section className="linear-inspector-issues"><header><h2>{locale === "zh" ? "阻断项" : "Blocking issues"}</h2><span>{blockingIssues.length}</span></header><ul>{blockingIssues.map((issue) => <li key={issue.id}><AlertTriangle size={14}/><span>{issue.message}</span></li>)}</ul></section>}
+        <div className="rail-status linear-inspector-stage" data-stage={currentStage}><p>{locale === "zh" ? "当前阶段" : "Current stage"}</p><strong>{projectStageLabels[locale][currentStage]}</strong><span>{blockingIssues.length} {locale === "zh" ? "个阻断项" : "blocking issues"}</span></div>
+      </aside>
+        </div>
+      </div>
     </div>
+    {projectSettingsOpen && <WorkbenchDialog open title={locale === "zh" ? "项目设置" : "Project settings"} closeLabel={locale === "zh" ? "关闭项目设置" : "Close project settings"} onClose={() => setProjectSettingsOpen(false)} busy={busy} testId="project-settings-dialog" headerClassName="project-settings-heading">{renderProjectSettings()}</WorkbenchDialog>}
+    {newProjectOpen && <WorkbenchDialog open title={locale === "zh" ? "新建项目" : "New project"} closeLabel={locale === "zh" ? "关闭新建项目" : "Close new project"} onClose={() => setNewProjectOpen(false)} busy={busy} testId="new-project-dialog"><form onSubmit={event => { event.preventDefault(); void createManagedProject(); }}><Field label={locale === "zh" ? "项目名称" : "Project name"}><input autoFocus aria-label={locale === "zh" ? "项目名称" : "Project name"} value={newProjectName} disabled={busy} maxLength={200} onChange={event => setNewProjectName(event.target.value)}/></Field><p className="dialog-note">{locale === "zh" ? "将创建独立项目文件夹，当前项目与资料会先保存。" : "A separate project folder will be created after the current project and its files are saved."}</p>{projectDialogError && <p className="dialog-error" role="alert">{projectDialogError}</p>}<div className="workbench-dialog-actions"><button className="command-button" type="button" disabled={busy} onClick={() => setNewProjectOpen(false)}>{locale === "zh" ? "取消" : "Cancel"}</button><button className="model-save-button" type="submit" disabled={busy || !newProjectName.trim()}>{busy ? (locale === "zh" ? "正在保存…" : "Saving…") : (locale === "zh" ? "创建项目" : "Create project")}</button></div></form></WorkbenchDialog>}
+    <ProjectHistoryDialog locale={locale} open={projectHistoryOpen} busy={busy} onClose={() => setProjectHistoryOpen(false)} onLoad={openHistoryProject} onImportExisting={importExistingHistory}/>
     {ocrChoiceSourceIds && <div className="model-choice-backdrop">
       <section className="model-choice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="ocr-choice-title">
         <h2 id="ocr-choice-title">{locale === "zh" ? "导入文件存在无法识别项，是否通过 OCR 重新识别？" : "Some imported files could not be recognized. Run OCR?"}</h2>
@@ -3579,17 +3856,12 @@ export default function SolutionWorkbench({ initialView = "presales" }: Props) {
         </div>
       </section>
     </div>}
-    {pendingDirectoryChange && <div className="model-choice-backdrop">
-      <section className="model-choice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="directory-change-title">
-        <h2 id="directory-change-title">{pendingDirectoryChange.mode === "migrate"
-          ? (locale === "zh" ? "修改路径会迁移当前项目到新路径，可能会需要一些时间，请等候..." : "Changing the folder migrates the current project and may take some time. Please wait.")
-          : (locale === "zh" ? "选定路径后将创建项目文件夹，是否继续？" : "The project folder structure will be created in the selected folder. Continue?")}</h2>
-        <span>{pendingDirectoryChange.mode === "migrate"
-          ? (locale === "zh" ? `当前项目将迁移到“${pendingDirectoryChange.handle.name}”。迁移成功后只删除原路径中的工作台受管文件，不处理其他文件。` : `The project will move to “${pendingDirectoryChange.handle.name}”. Only workbench-managed files are removed from the old folder after a successful copy.`)
-          : (locale === "zh" ? "将创建：0_项目客户方资料、1_售前准备、2_招标要求、3_技术标组包、4_中标交底、5_输出文件。" : "Six managed stage folders will be created for customer materials, presales, tender, bid, handover, and outputs.")}</span>
-        <div><button className="model-choice-primary" type="button" onClick={() => void confirmDirectoryChange()}><Check size={18}/>{locale === "zh" ? "是，继续" : "Yes, continue"}</button><button type="button" onClick={() => setPendingDirectoryChange(null)}><X size={18}/>{locale === "zh" ? "否，取消" : "No, cancel"}</button></div>
-      </section>
-    </div>}
+    {pendingDirectoryChange && <WorkbenchDialog open testId="directory-change-dialog" title={locale === "zh" ? "设置项目位置" : "Set project location"} closeLabel={locale === "zh" ? "取消设置项目位置" : "Cancel project location"} busy={busy} onClose={() => setPendingDirectoryChange(null)}>
+        <p>{pendingDirectoryChange.mode === "migrate"
+          ? (locale === "zh" ? `将复制项目到“${pendingDirectoryChange.handle.name}”并切换位置，原目录与文件会保留。` : `Copy the project to “${pendingDirectoryChange.handle.name}” and use that location. The original folder and files will be kept.`)
+          : (locale === "zh" ? "将创建：0_项目客户方资料、1_售前准备、2_招标要求、3_技术标组包、4_中标交底、5_输出文件。" : "Six managed stage folders will be created for customer materials, presales, tender, bid, handover, and outputs.")}</p>
+        <div className="workbench-dialog-actions"><button className="command-button" type="button" onClick={() => setPendingDirectoryChange(null)}>{locale === "zh" ? "否，取消" : "No, cancel"}</button><button className="model-save-button model-choice-primary" type="button" onClick={() => void confirmDirectoryChange()}><Check size={18}/>{locale === "zh" ? "是，继续" : "Yes, continue"}</button></div>
+    </WorkbenchDialog>}
     {projectPathRequired && <div className="model-choice-backdrop">
       <section className="model-choice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="project-path-required-title">
         <h2 id="project-path-required-title">{t.projectPathRequired}</h2>

@@ -80,6 +80,39 @@ test('cancelled directory selection does not authorize anything', async t => {
   await assert.rejects(service.persist({ key: 'arbitrary', handle: null }), { name: 'NotAllowedError' });
 });
 
+test('trusted managed registration grants only descendants of a plain app-owned scope and is not an IPC operation', async t => {
+  const { service, base, outside, userData } = await fixture(t);
+  const scope = path.join(base, 'managed-library'), project = path.join(scope, 'project-one');
+  await fs.mkdir(scope); await fs.mkdir(project);
+  const handle = await service.registerManagedDirectory(project, scope);
+  assert.ok(handle.rootId.startsWith('managed_'));
+  const file = await service.op({ handle, op: 'file', name: 'project.json', create: true });
+  await service.op({ handle: file, op: 'write', data: new Uint8Array(Buffer.from('{}')) });
+  await service.persist({ key: 'active-workspace', handle });
+  assert.deepEqual(await createFilesystemService({ userData }).restore({ key: 'active-workspace' }), handle);
+  await assert.rejects(service.registerManagedDirectory(outside, scope), { code: 'PATH_ESCAPE' });
+  await assert.rejects(service.registerManagedDirectory(scope, scope), { code: 'PATH_ESCAPE' });
+  await assert.rejects(service.op({ op: 'registerManagedDirectory', directory: outside, scopeRoot: scope }), { code: 'INVALID_OPERATION' });
+  const link = path.join(scope, 'linked');
+  try { await fs.symlink(outside, link, process.platform === 'win32' ? 'junction' : 'dir'); }
+  catch (error) { if (['EPERM', 'ENOTSUP'].includes(error.code)) return; throw error; }
+  await assert.rejects(service.registerManagedDirectory(link, scope), { code: 'PATH_ESCAPE' });
+});
+
+test('clearing the project-output binding preserves active workspace grants and all files', async t => {
+  const { service, handle, root, userData } = await fixture(t);
+  await fs.writeFile(path.join(root, 'kept.txt'), 'keep');
+  await service.persist({ key: 'active-workspace', handle });
+  await service.persist({ key: 'project-output', handle });
+  await service.persist({ key: 'project-output', handle: null });
+  const restored = createFilesystemService({ userData });
+  assert.equal(await restored.restore({ key: 'project-output' }), null);
+  assert.deepEqual(await restored.restore({ key: 'active-workspace' }), handle);
+  assert.equal(await fs.readFile(path.join(root, 'kept.txt'), 'utf8'), 'keep');
+  const listed = await restored.op({ handle, op: 'list' });
+  assert.ok(listed.some(([name]) => name === 'kept.txt'));
+});
+
 test('missing entries and wrong file kinds preserve browser-compatible error names', async t => {
   const { service, handle } = await fixture(t);
   await assert.rejects(service.op({ handle, op: 'file', name: 'missing.txt' }), { name: 'NotFoundError' });

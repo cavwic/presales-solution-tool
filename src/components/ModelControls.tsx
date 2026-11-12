@@ -79,6 +79,15 @@ export default function ModelControls({ locale, busy = false, toolbarTarget }: {
   const fingerprint = (provider: Channel, candidate = settings, key = apiKey, localKey = localApiKey) => JSON.stringify(provider === "codex" ? [candidate.subscriptionProvider, candidate.subscriptionVendor, candidate.subscriptionProtocol, candidate.subscriptionEndpoint, candidate.subscriptionModel, candidate.codexModel, subscriptionApiKey] : provider === "local" ? [candidate.localRuntime, candidate.localEndpoint, candidate.localModel, localKey] : [candidate.cloudEndpoint, candidate.cloudModel, key]);
   const modelName = (provider: Channel) => provider === "codex" ? settings.subscriptionProvider === "codex" ? settings.codexModel : settings.subscriptionModel : provider === "local" ? settings.localModel : settings.cloudModel;
   const isVerified = (provider: Channel) => verified[provider] === fingerprint(provider);
+  const revealSettings = () => {
+    window.requestAnimationFrame(() => {
+      const panel = section.current;
+      if (!panel) return;
+      // The desktop shell owns its viewport. Only the settings panel may scroll.
+      if (panel.closest(".linear-app")) panel.scrollTo({ top: 0, behavior: "instant" });
+      else panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   useEffect(() => {
     setSettings(readModelSettings());
@@ -90,7 +99,7 @@ export default function ModelControls({ locale, busy = false, toolbarTarget }: {
       setPendingTask(task || null);
       setExpanded(true);
       setNotice("");
-      window.requestAnimationFrame(() => section.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      revealSettings();
     };
     window.addEventListener("bid-model-settings-open", open);
     if (new URLSearchParams(window.location.search).get("model-settings") === "open") setExpanded(true);
@@ -158,7 +167,7 @@ export default function ModelControls({ locale, busy = false, toolbarTarget }: {
     setNotice("");
     if (provider === "local" || provider === "hybrid" || !modelName(provider)) {
       setExpanded(true);
-      window.requestAnimationFrame(() => section.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      revealSettings();
     }
   };
 
@@ -281,8 +290,8 @@ export default function ModelControls({ locale, busy = false, toolbarTarget }: {
         <i className={enabled.every(isVerified) ? "verified" : ""}/><span>{settings.provider === "hybrid" ? enabled.map((provider) => t[provider]).join(" + ") : modelName(settings.provider) || (settings.provider === "codex" ? t.defaultModel : t.unnamed)}</span>
         {dirty && <small>{t.unsaved}</small>}
       </div>
-      <button type="button" className={`model-expand-toggle${expanded ? " expanded" : ""}`} aria-label={expanded ? t.close : t.open} title={expanded ? t.close : t.open} aria-expanded={expanded} aria-controls="workbench-model-settings" disabled={locked} onClick={() => { setExpanded(!expanded); if (!expanded) window.requestAnimationFrame(() => section.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }}><ChevronDown size={19}/></button>
-      <button type="button" className="model-skills-button" data-testid="import-skills" disabled={locked} title={t.skillsHint} onClick={() => setSkillsOpen(true)}><BookOpen size={16}/><span>{t.importSkills}</span></button>
+      <button type="button" className={`model-expand-toggle${expanded ? " expanded" : ""}`} aria-label={expanded ? t.close : t.open} title={expanded ? t.close : t.open} aria-expanded={expanded} aria-controls="workbench-model-settings" disabled={locked} onClick={() => { setExpanded(!expanded); if (!expanded) revealSettings(); }}><ChevronDown size={19}/></button>
+      <button type="button" className="model-skills-button" data-testid="import-skills" aria-label={t.importSkills} disabled={locked} title={t.skillsHint} onClick={() => setSkillsOpen(true)}><BookOpen size={16}/><span>{t.importSkills}</span></button>
       </div>
     </>, toolbarTarget)}
     <section className="model-controls" id="workbench-model-controls" data-testid="model-controls" ref={section} aria-label={t.channels} hidden={!expanded}>

@@ -1,14 +1,16 @@
 'use strict';
-const { app, BrowserWindow, Menu, protocol, dialog, ipcMain, nativeTheme, shell, screen } = require('electron');
+const { app, BrowserWindow, Menu, protocol, dialog, ipcMain, nativeTheme, shell, screen, clipboard } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { createHash, randomUUID } = require('node:crypto');
 const { attachFilesystem } = require('./filesystem.cjs');
+const { resolveProjectLibraryRoot, createProjectLibraryService, attachProjectLibrary } = require('./project-library.cjs');
 const { attachCleanup } = require('./cleanup.cjs');
 const { createSkillService, attachSkills } = require('./skills.cjs');
 const { requestModel } = require('./model.cjs');
 const { createModelService } = require('./model-service.cjs');
 const { attachWindowControls } = require('./window-controls.cjs');
+const { createTextMenuTemplate } = require('./text-context-menu.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST = path.join(ROOT, 'dist');
@@ -24,7 +26,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'bid', privileges: { standard: t
 let window, controls, locale = 'zh', sessionApiKey = '', sessionLocalApiKey = '', sessionSubscriptionApiKey = '';
 const skillService = createSkillService({ userData });
 const modelService = createModelService({ userData, buildSkillContext: () => skillService.context({ locale }) });
-const pageBackground = () => nativeTheme.shouldUseDarkColors ? '#111b26' : '#eef3f8';
+const pageBackground = () => nativeTheme.shouldUseDarkColors ? '#0d1824' : '#eef3f8';
 nativeTheme.on('updated', () => { if (window && !window.isDestroyed()) window.setBackgroundColor(pageBackground()); });
 let windowState = {};
 fs.mkdirSync(userData, { recursive: true });
@@ -38,7 +40,7 @@ function logError(error) {
   fs.appendFileSync(path.join(userData, 'desktop-error.log'), `${new Date().toISOString()} ${String(error?.message || error)}\n`);
 }
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.zip': 'application/zip', '.ico': 'image/x-icon', '.pdf': 'application/pdf' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.zip': 'application/zip', '.ico': 'image/x-icon', '.pdf': 'application/pdf' };
 
 async function serve(request) {
   if (!isLocal(request.url) || !['GET', 'HEAD'].includes(request.method)) return new Response('Not found', { status: 404 });
@@ -64,7 +66,7 @@ function createWindow() {
   const width = Math.min(windowState.width || 1480, area.width), height = Math.min(windowState.height || 960, area.height);
   window = new BrowserWindow({
     width, height, minWidth: 760, minHeight: 540, title: '售前解决方案工具',
-    frame: false, thickFrame: false, roundedCorners: false, show: false,
+    frame: false, thickFrame: false, roundedCorners: false, resizable: true, show: false,
     backgroundColor: pageBackground(),
     icon: path.join(ROOT, 'assets', 'presales-solution-tool.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false },
@@ -103,7 +105,13 @@ else {
     Menu.setApplicationMenu(null);
     protocol.handle('bid', serve);
     createWindow();
-    attachFilesystem({ ipcMain, dialog, getWindow: () => window, userData, assertSender, getLocale: () => locale, trashItem: filename => shell.trashItem(filename) });
+    const filesystem = attachFilesystem({ ipcMain, dialog, getWindow: () => window, userData, assertSender, getLocale: () => locale, trashItem: filename => shell.trashItem(filename) });
+    const projectLibrary = createProjectLibraryService({
+      rootPath: resolveProjectLibraryRoot({ sourceRoot: ROOT, executablePath: process.execPath, packaged: app.isPackaged, userData }),
+      filesystem: filesystem.service, openPath: filename => shell.openPath(filename),
+      onWarning: warning => logError(`Project library ${warning.code}: ${warning.detail}`),
+    });
+    attachProjectLibrary({ ipcMain, service: projectLibrary, assertSender, getLocale: () => locale });
     attachCleanup({ ipcMain, userData, session: window.webContents.session, assertSender, getLocale: () => locale });
     attachSkills({ ipcMain, service: skillService, assertSender, getLocale: () => locale });
     ipcMain.on('bid:key:get', (event) => { try { assertSender(event); event.returnValue = sessionApiKey; } catch { event.returnValue = ''; } });
@@ -112,6 +120,11 @@ else {
     ipcMain.on('bid:local-key:set', (event, value) => { try { assertSender(event); sessionLocalApiKey = typeof value === 'string' && value.length < 16384 && !/[\r\n]/.test(value) ? value.trim() : ''; event.returnValue = true; } catch { event.returnValue = false; } });
     ipcMain.handle('bid:window', (event, action) => { assertSender(event); return action === 'state' ? controls.state() : controls.action({ action: action === 'maximize' ? 'toggle-maximize' : action }); });
     ipcMain.handle('bid:resize', (event, input) => { assertSender(event); return controls.resize(input); });
+    ipcMain.handle('bid:text-menu', (event, input) => {
+      assertSender(event);
+      const template = createTextMenuTemplate(input, { clipboard, locale });
+      if (template.length) Menu.buildFromTemplate(template).popup({ window });
+    });
     ipcMain.handle('bid:locale', (event, next) => { assertSender(event); locale = next === 'en' ? 'en' : 'zh'; window.setTitle(locale === 'zh' ? '售前解决方案工具' : 'Presales Solution Tool'); });
     ipcMain.handle('bid:theme', (event, theme) => { assertSender(event); if (['light', 'dark', 'system'].includes(theme)) { nativeTheme.themeSource = theme; window.setBackgroundColor(pageBackground()); } });
     ipcMain.handle('bid:model', (event, input) => { assertSender(event); return requestModel(input); });

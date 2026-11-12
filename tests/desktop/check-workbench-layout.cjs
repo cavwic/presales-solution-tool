@@ -5,11 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { _electron: electron, expect } = require('playwright/test');
-const { collectWorkbenchLayout, assertWorkbenchLayout } = require('./layout-contract.cjs');
+const { collectWorkbenchLayout, assertWorkbenchLayout, assertProjectActionsReachable, scrollWorkbench } = require('./layout-contract.cjs');
+const { fieldThemeSettled, sourceElectronExecutable } = require('./test-runtime.cjs');
 const ROOT = path.resolve(__dirname, '../..');
 const runRoot = path.join(ROOT, '.cache', 'validation', 'workbench-layout-' + Date.now());
 const profile = path.join(runRoot, 'profile');
-const executablePath = process.env.PRESALES_SOLUTION_TOOL_EXECUTABLE || path.join(ROOT, 'release', '售前解决方案工具-win-x64', '售前解决方案工具.exe');
+const packaged = Boolean(process.env.PRESALES_SOLUTION_TOOL_EXECUTABLE);
+const executablePath = process.env.PRESALES_SOLUTION_TOOL_EXECUTABLE || sourceElectronExecutable();
 const expectedVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
 fs.mkdirSync(profile, { recursive: true });
 const report = { runRoot, profile, executablePath, expectedVersion, checks: [], layouts: [], screenshots: [], pageErrors: [], externalRequests: [] };
@@ -34,31 +36,34 @@ async function themeLocale(locale, theme) {
   if (await page.locator('html').getAttribute('data-locale') !== locale) await page.locator('#global-locale-toggle').click();
   if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('#global-theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-locale', locale); await expect(page.locator('html')).toHaveAttribute('data-theme', theme); await settled();
-  // Textareas animate their background for 140ms. Capture the finished theme,
-  // not a gray intermediate frame while switching between dark and light.
-  await expect.poll(() => page.evaluate(theme => {
-    const field = document.querySelector('.confirmable-textarea:not(.confirmed) textarea');
-    return !field || getComputedStyle(field).backgroundColor === (theme === 'dark' ? 'rgb(26, 41, 57)' : 'rgb(255, 255, 255)');
-  }, theme)).toBe(true);
+  // Capture the finished semantic field surface after its theme transition.
+  await expect.poll(() => page.evaluate(fieldThemeSettled)).toBe(true);
 }
 
 async function inspect(name, locale, capture = true) {
-  const layout = await page.evaluate(collectWorkbenchLayout); report.layouts.push({ name, layout }); assertWorkbenchLayout(layout, name);
+  const layout = await page.evaluate(collectWorkbenchLayout);
+  layout.projectHeaderPosition = await page.locator('.project-header').evaluate(element => getComputedStyle(element).position);
+  report.layouts.push({ name, layout }); assertWorkbenchLayout(layout, name);
   const fields = await page.evaluate(() => [...document.querySelectorAll('.confirmable-textarea textarea')].slice(0, 2).map(field => ({ background: getComputedStyle(field).backgroundColor, disabled: field.disabled, readOnly: field.readOnly, focused: field === document.activeElement, hovered: field.matches(':hover'), transition: getComputedStyle(field).transition, classes: field.closest('.confirmable-textarea').className })));
   report.layouts[report.layouts.length - 1].textareaStyles = fields;
-  const labels = await page.locator('.project-header .workspace-toolbar button').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
-  assert.deepEqual(labels, locale === 'zh' ? ['新建项目', '项目设置', '文件清理'] : ['New project', 'Project settings', 'File cleanup']);
+  const labels = await page.locator('.linear-sidebar-footer > button').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+  const historyLabel = locale === 'zh' ? '历史项目' : 'Project history';
+  assert.equal(labels.filter(label => label === historyLabel).length, 1);
+  assert.deepEqual(labels.filter(label => label !== historyLabel), locale === 'zh' ? ['新建项目', '项目设置', '文件清理'] : ['New project', 'Project settings', 'File cleanup']);
   assert.deepEqual(await page.locator('.header-metrics > div > span').allTextContents(), locale === 'zh' ? ['招标要求', '已绑定证据', '已批准', '待批准'] : ['Tender requirements', 'With evidence', 'Approved', 'Pending approval']);
-  assert.equal(await page.locator('.project-header > div:first-child').evaluate(element => [...element.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).every(node => !node.textContent.trim())), true);
-  for (const button of layout.actions.buttons) { assert.equal(button.inside, true, name + ': main action outside viewport: ' + button.label); assert.equal(button.hit, true, name + ': main action covered: ' + button.label); }
+  assert.equal(await page.locator('.linear-inspector-properties > .field').count(), 5);
+  await assertProjectActionsReachable(page, name);
   if (capture) await screenshot(name);
   return layout;
 }
 
 async function checkPanels(locale) {
-  const project = page.locator('.project-header .project-path-command'); await project.click(); await expect(page.locator('.project-settings-panel')).toBeVisible();
-  await page.getByRole('button', { name: locale === 'zh' ? '关闭项目设置' : 'Close project settings', exact: true }).click(); await expect(page.locator('.project-settings-panel')).toHaveCount(0);
-  await page.locator('.project-header .file-cleanup-command').click();
+  const project = page.locator('.linear-sidebar-footer .project-path-command'); await project.click(); await expect(page.locator('.project-settings-panel')).toBeVisible();
+  const settings = page.getByTestId('project-settings-dialog'); await expect(settings).toBeVisible();
+  assert.equal(await settings.evaluate(element => element.matches(':modal') && element.contains(document.activeElement)), true);
+  await expect(page.locator('.linear-document .project-settings-panel')).toHaveCount(0);
+  await page.getByRole('button', { name: locale === 'zh' ? '关闭项目设置' : 'Close project settings', exact: true }).click(); await expect(settings).toBeHidden();
+  await page.locator('.linear-sidebar-footer .file-cleanup-command').click();
   const modal = page.getByTestId('file-cleanup-dialog'); await expect(modal).toBeVisible(); await expect(modal.locator('.file-cleanup-body')).toHaveAttribute('aria-busy', 'false');
   await expect(modal.locator('input:checked')).toHaveCount(0); await expect(modal.getByTestId('cleanup-review')).toBeDisabled();
   await page.keyboard.press('Escape'); await expect(modal).toHaveCount(0); await expect(page.locator('.file-cleanup-command')).toBeFocused();
@@ -66,25 +71,26 @@ async function checkPanels(locale) {
 
 (async () => {
   const env = { ...process.env, PRESALES_SOLUTION_TOOL_TEST_DATA: profile }; delete env.ELECTRON_RUN_AS_NODE;
-  app = await electron.launch({ executablePath, args: [], env, timeout: 30000 }); page = await app.firstWindow();
+  app = await electron.launch({ executablePath, args: packaged ? [] : [ROOT], env, timeout: 30000 }); page = await app.firstWindow();
   page.on('pageerror', error => report.pageErrors.push(error.message));
   await page.route(/^https?:/, route => { report.externalRequests.push(route.request().url()); return route.abort(); });
   await expect(page.locator('.solution-app')).toHaveAttribute('data-ready', 'true', { timeout: 20000 });
   await expect(page.locator('.file-cleanup-command')).toBeEnabled();
   const identity = await app.evaluate(({ app }) => ({ userData: app.getPath('userData'), version: app.getVersion() }));
   assert.equal(identity.userData, profile); assert.equal(identity.version, expectedVersion);
-  pass('Packaged app uses only the dedicated layout-test profile', identity);
+  pass('App uses only the dedicated layout-test profile', identity);
 
   for (const [width, height, zoom] of [[1480, 960, 1], [1280, 900, 1], [760, 900, 1.25]]) for (const locale of ['zh', 'en']) for (const theme of ['dark', 'light']) {
     const name = `${width}-${Math.round(zoom * 100)}-${locale}-${theme}`;
-    await resize(width, height, zoom); await themeLocale(locale, theme); await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' })); await settled();
+    await resize(width, height, zoom); await themeLocale(locale, theme); await page.evaluate(scrollWorkbench, 'start'); await settled();
     const initial = await inspect(name, locale);
     await checkPanels(locale);
-    await page.evaluate(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' })); await settled();
+    await page.evaluate(scrollWorkbench, 'end'); await settled();
     const scrolled = await inspect(name + '-scrolled', locale, false);
-    for (const item of ['header', 'brand', 'undo', 'redo', 'models', 'windowControls', 'actions']) assert.ok(Math.abs(initial[item].top - scrolled[item].top) <= 1, name + ': sticky control moved with document scroll: ' + item);
-    await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
-    pass(name + ': two-row topbar, one history pair beside brand, ordered right window controls, three main-title actions, removed subtitle without a gap, retained statistics and working panel buttons');
+    const stickyItems = ['header', 'brand', 'undo', 'redo', 'models', 'windowControls', 'workspace', 'mainShell', 'sidebarHeading', 'actions'];
+    for (const item of stickyItems) assert.ok(Math.abs(initial[item].top - scrolled[item].top) <= 1, name + ': sticky control moved with document scroll: ' + item);
+    await page.evaluate(scrollWorkbench, 'start');
+    pass(name + ': responsive Linear columns, ordered native chrome, reachable sidebar actions, editable title, retained inspector statistics and working panels');
   }
 
   await resize(1480, 960, 1); await themeLocale('zh', 'dark');
@@ -92,16 +98,21 @@ async function checkPanels(locale) {
   await nameField.fill('公开虚构布局验收项目'); await expect(page.locator('#global-history-undo')).toBeEnabled();
   await page.locator('#global-history-undo').click(); await expect(nameField).toHaveValue(originalName); await expect(page.locator('#global-history-redo')).toBeEnabled();
   await page.locator('#global-history-redo').click(); await expect(nameField).toHaveValue('公开虚构布局验收项目');
-  await expect(page.locator('.project-header')).not.toContainText('公开虚构布局验收项目');
+  await expect(page.locator('.linear-breadcrumb')).toContainText('公开虚构布局验收项目');
+  await expect(page.locator('.linear-project-switcher')).toContainText('公开虚构布局验收项目');
   await screenshot('history-restored');
-  pass('Relocated history buttons undo and redo an actual project-name edit, while the name remains absent from the title area');
+  pass('History restores a real project-title edit and synchronizes the document, breadcrumb and sidebar');
 
-  await page.locator('.project-header .workspace-toolbar button').first().click(); await expect(nameField).toHaveValue(originalName);
+  await page.locator('.linear-sidebar-footer > button').first().click();
+  const newProject = page.getByTestId('new-project-dialog'); await expect(newProject).toBeVisible();
+  await newProject.getByRole('textbox', { name: '项目名称', exact: true }).fill('公开虚构新建布局项目');
+  await newProject.getByRole('button', { name: '创建项目', exact: true }).click();
+  await expect(newProject).toBeHidden(); await expect(nameField).toHaveValue('公开虚构新建布局项目');
   await page.locator('.model-expand-toggle').click(); await expect(page.locator('#workbench-model-settings')).toBeVisible(); await page.locator('.model-expand-toggle').click(); await expect(page.locator('#workbench-model-settings')).toHaveCount(0);
-  pass('New project works from below the page title and model settings still expand from the second topbar row');
+  pass('New project works from the sidebar and model settings still expand from the model strip');
 
   for (const [name, width, height, zoom, maximized] of [['short-540', 1480, 540, 1, false], ['maximized', 1480, 960, 1, true]]) {
-    const native = await resize(width, height, zoom, maximized); await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' })); await settled(); await inspect(name, 'zh'); pass(name + ': responsive layout remains usable', native);
+    const native = await resize(width, height, zoom, maximized); await page.evaluate(scrollWorkbench, 'start'); await settled(); await inspect(name, 'zh'); pass(name + ': responsive layout remains usable', native);
   }
   await page.locator('#window-maximize').click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMaximized())).toBe(false);
   await page.locator('#window-minimize').click(); await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMinimized())).toBe(true);

@@ -100,7 +100,7 @@ function validFingerprint(value) {
 }
 const identity = info => [info.dev, info.ino, info.size, info.mtimeMs, info.ctimeMs].join(':');
 
-/** Only chooseDirectory (or explicitly injected test grants) can authorize a root. */
+/** Roots come only from the picker, trusted internal managed storage, or injected tests. */
 function createFilesystemService({ userData, chooseDirectory, grants, trashItem } = {}) {
   if (typeof userData !== 'string' || !path.isAbsolute(userData)) throw new TypeError('userData must be an absolute path.');
   const stateFile = path.join(userData, 'authorized-folders.json');
@@ -324,6 +324,39 @@ function createFilesystemService({ userData, chooseDirectory, grants, trashItem 
 
   const invoke = fn => async input => { try { await ready; return await fn(input || {}); } catch (error) { throw normalizeError(error); } };
   const service = {
+    // Internal capability for the app-owned project library. This method is not
+    // an IPC operation and cannot authorize a path supplied by the renderer.
+    registerManagedDirectory: async (directory, scopeRoot) => {
+      try {
+        await ready;
+        return await serial(async () => {
+          if (typeof directory !== 'string' || typeof scopeRoot !== 'string' || !path.isAbsolute(directory) || !path.isAbsolute(scopeRoot)) {
+            throw fail('NotAllowedError', '受管目录路径无效。', 'INVALID_PATH');
+          }
+          directory = path.resolve(directory); scopeRoot = path.resolve(scopeRoot);
+          if (!contains(scopeRoot, directory) || normalized(scopeRoot) === normalized(directory)) {
+            throw fail('NotAllowedError', '受管目录必须位于项目资料库内。', 'PATH_ESCAPE');
+          }
+          const scopeInfo = await fs.lstat(scopeRoot);
+          if (!scopeInfo.isDirectory() || scopeInfo.isSymbolicLink() || normalized(await fs.realpath(scopeRoot)) !== normalized(scopeRoot)) {
+            throw fail('NotAllowedError', '项目资料库不可使用链接。', 'PATH_ESCAPE');
+          }
+          let current = scopeRoot;
+          for (const part of path.relative(scopeRoot, directory).split(path.sep)) {
+            validName(part);
+            current = path.join(current, part);
+            const info = await fs.lstat(current);
+            if (!info.isDirectory() || info.isSymbolicLink() || !contains(scopeRoot, await fs.realpath(current))) {
+              throw fail('NotAllowedError', '受管目录不可使用链接。', 'PATH_ESCAPE');
+            }
+          }
+          const id = 'managed_' + createHash('sha256').update(normalized(scopeRoot) + '\0' + normalized(directory)).digest('hex').slice(0, 40);
+          if (roots.has(id) && normalized(roots.get(id)) !== normalized(directory)) throw fail('NotAllowedError', '受管目录标识已改变。', 'ROOT_CHANGED');
+          if (!roots.has(id)) { roots.set(id, directory); await saveState(); }
+          return handleFor(id, [], 'directory');
+        });
+      } catch (error) { throw normalizeError(error); }
+    },
     pick: invoke(input => serial(async () => {
       if (typeof chooseDirectory !== 'function') throw fail('NotAllowedError', '当前环境无法选择文件夹。', 'PICKER_UNAVAILABLE');
       const selected = await chooseDirectory({ purpose: input.purpose });

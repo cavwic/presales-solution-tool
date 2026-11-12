@@ -19,3 +19,5 @@ docs/validation/local/
 *.pfx
 *.key
 public/downloads/skills/
+/preserved/
+/项目资料库/

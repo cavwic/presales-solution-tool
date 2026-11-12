@@ -22,6 +22,7 @@ const mime = {
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ".svg": "image/svg+xml",
   ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
   ".zip": "application/zip",
 };
 

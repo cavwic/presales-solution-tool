@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const { _electron: electron, expect } = require('playwright/test');
 const { collectWorkbenchLayout, assertWorkbenchLayout } = require('./layout-contract.cjs');
+const { fieldThemeSettled } = require('./test-runtime.cjs');
 const ROOT = path.resolve(__dirname, '../..');
 const executablePath = process.env.PRESALES_SOLUTION_TOOL_EXECUTABLE || path.join(ROOT, 'release', '售前解决方案工具-win-x64', '售前解决方案工具.exe');
 const expectedVersion = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version;
@@ -101,7 +102,7 @@ async function themeLocale(locale, theme) {
   if (await page.locator('html').getAttribute('data-locale') !== locale) await page.locator('#global-locale-toggle').click();
   if (await page.locator('html').getAttribute('data-theme') !== theme) await page.locator('#global-theme-toggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-locale', locale); await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-  await expect.poll(() => page.evaluate(theme => { const field = document.querySelector('.confirmable-textarea:not(.confirmed) textarea'); return !field || getComputedStyle(field).backgroundColor === (theme === 'dark' ? 'rgb(26, 41, 57)' : 'rgb(255, 255, 255)'); }, theme)).toBe(true); await settled();
+  await expect.poll(() => page.evaluate(fieldThemeSettled)).toBe(true); await settled();
 }
 async function inspectModal(name, modal) {
   const layout = await modal.evaluate(element => {

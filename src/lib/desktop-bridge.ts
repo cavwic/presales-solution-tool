@@ -28,7 +28,7 @@ declare global {
     fs: {
       pick(input: { purpose?: string }): Promise<Envelope<NativeHandle | null>>;
       restore(input: { key: string }): Promise<Envelope<NativeHandle | null>>;
-      persist(input: { key: string; handle: NativeHandle }): Promise<Envelope<void>>;
+      persist(input: { key: string; handle: NativeHandle | null }): Promise<Envelope<void>>;
       op(input: Record<string, unknown>): Promise<Envelope<unknown>>;
     };
     modelRequest(input: { endpoint: string; authorization: string; body: string }): Promise<{ status: number; body: string }>;
@@ -112,6 +112,10 @@ export async function pickDesktopDirectory(purpose = "active-workspace"): Promis
 export async function persistDesktopDirectory(key: string, handle: DirectoryHandleLike): Promise<void> {
   if (!(handle instanceof DesktopDirectoryHandle)) return;
   await unwrap(window.bidDesktop!.fs.persist({ key, handle: handle.native }));
+}
+
+export async function clearDesktopDirectory(key: string): Promise<void> {
+  await unwrap(window.bidDesktop!.fs.persist({ key, handle: null }));
 }
 
 export async function restoreDesktopDirectory(key: string): Promise<DesktopDirectoryHandle | null> {

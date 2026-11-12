@@ -1,13 +1,15 @@
 ---
 import { Files, Languages, Moon, Redo2, Sun, Undo2 } from "@lucide/astro";
 import "../styles/global.css";
+import "../styles/workspace-refresh.css";
+import "../styles/workspace-linear.css";
 const titleZh = "售前解决方案工具";
 const titleEn = "Presales Solution Tool";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const href = (path: string) => `${base}${path}`;
 ---
 <!doctype html>
-<html lang="zh-CN" data-locale="zh">
+<html lang="zh-CN" data-locale="zh" data-workspace-design="linear">
   <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>

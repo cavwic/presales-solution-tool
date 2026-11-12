@@ -1,5 +1,42 @@
 'use strict';
 const { contextBridge, ipcRenderer } = require('electron');
+
+// A delegated native menu makes labels, disabled buttons and tooltips copyable
+// without changing their left-click behavior or exposing a clipboard API.
+document.addEventListener('contextmenu', (event) => {
+  if (!event.isTrusted || !(event.target instanceof Element)) return;
+  const target = event.target;
+  const control = target.closest('input, textarea, select, [contenteditable="true"]');
+  const password = control instanceof HTMLInputElement && control.type === 'password';
+  const editable = control instanceof HTMLTextAreaElement || (control instanceof HTMLInputElement && !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(control.type)) || control?.getAttribute('contenteditable') === 'true';
+  const documentSelection = password ? '' : window.getSelection()?.toString() || '';
+  const hasInputSelection = !password && (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) && typeof control.selectionStart === 'number' && control.selectionEnd > control.selectionStart;
+  const temporalText = control instanceof HTMLInputElement && ['date', 'datetime-local', 'month', 'week', 'time'].includes(control.type)
+    ? control.closest('.localized-temporal-input')?.querySelector(':scope > span')?.innerText || ''
+    : '';
+  let text = '';
+  if (!password && (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) && editable) text = control.value ? temporalText || control.value : '';
+  else if (control instanceof HTMLSelectElement) text = Array.from(control.selectedOptions).map(option => option.text).join('\n');
+  else if (documentSelection) text = documentSelection;
+  else {
+    const readable = target.closest('button, a, label, summary, [role="button"]') || target;
+    text = readable.innerText || '';
+  }
+  const hint = target.closest('[title]')?.getAttribute('title') || '';
+  const placeholder = (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) && !control.value ? control.placeholder || temporalText : '';
+  if (!editable && !text.trim() && !hint.trim()) return;
+  event.preventDefault();
+  ipcRenderer.invoke('bid:text-menu', {
+    text,
+    hint,
+    placeholder,
+    password,
+    editable,
+    selected: Boolean(hasInputSelection || documentSelection),
+    readOnly: Boolean(control?.readOnly || control?.disabled),
+  }).catch(() => {});
+}, true);
+
 const skillCall = async (channel, input) => {
   const result = await ipcRenderer.invoke(channel, input);
   if (result.ok) return result.value;
@@ -29,6 +66,15 @@ contextBridge.exposeInMainWorld('bidDesktop', {
     installUrl: (input) => skillCall('bid:skills:install-url', input),
     setEnabled: (input) => skillCall('bid:skills:set-enabled', input),
     read: (input) => skillCall('bid:skills:read', input),
+  },
+  projects: {
+    info: () => skillCall('bid:projects:info'),
+    prepare: (input) => skillCall('bid:projects:prepare', input),
+    commit: (input) => skillCall('bid:projects:commit', input),
+    list: () => skillCall('bid:projects:list'),
+    get: (input) => skillCall('bid:projects:get', input),
+    setSubmitted: (input) => skillCall('bid:projects:setSubmitted', input),
+    openFolder: (input) => skillCall('bid:projects:openFolder', input),
   },
   openFile: (input) => ipcRenderer.invoke('bid:open-file', input),
   windowResize: (input) => ipcRenderer.invoke('bid:resize', input),

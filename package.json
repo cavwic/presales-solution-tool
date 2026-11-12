@@ -1,6 +1,6 @@
 {
   "name": "cavwic-presales-solution-tool",
-  "version": "1.6.0",
+  "version": "1.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -23,6 +23,9 @@
     "test:models-ui": "node tests/desktop/smoke-model-controls.cjs",
     "test:local-models-ui": "node tests/desktop/smoke-local-models.cjs",
     "test:responsive-ui": "node tests/desktop/smoke-responsive.cjs",
+    "test:model-topbar-ui": "node tests/desktop/check-model-topbar.cjs",
+    "test:workspace-clipping-ui": "node tests/desktop/check-workspace-clipping.cjs",
+    "test:project-library-ui": "node tests/desktop/check-project-library.cjs",
     "test:installed": "node tests/desktop/smoke-installed.cjs",
     "test:plans-skills-ui": "node tests/desktop/check-plans-skills.cjs",
     "test:cleanup-ui": "node tests/desktop/check-file-cleanup.cjs",

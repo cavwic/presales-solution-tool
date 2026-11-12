@@ -1,0 +1,11 @@
+---
+import PreviewApp from '../../components/design-preview/PreviewApp';
+import type { PreviewStyle } from '../../components/design-preview/preview-data';
+export function getStaticPaths() { return ['linear','fluent','notion','shadcn'].map(style => ({ params: { style } })); }
+const style = Astro.params.style as PreviewStyle;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="color-scheme" content="light dark"/><meta name="robots" content="noindex"/><title>售前解决方案工具</title></head>
+  <body><PreviewApp client:only="react" initialStyle={style}/></body>
+</html>
