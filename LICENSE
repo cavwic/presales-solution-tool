@@ -1,0 +1,35 @@
+PUBLIC PRODUCT REPOSITORY NOTICE
+公开产品仓库声明
+
+Copyright (c) 2026 Cavwic.
+
+ENGLISH
+
+This repository contains product descriptions, first-use instructions, feature
+notes, screenshots and licensing information for the Presales Solution Tool.
+It does not distribute the application, installers or commercial source code.
+Access to these public materials does not grant a right to use commercial source
+code or receive a software delivery.
+
+Versions of the tool that expressly adopt the Cavwic Commercial Software License
+1.0 are supplied under that existing license, together with the applicable order
+or written grant. Read docs/licensing.md for a summary and the full license
+supplied with the delivered version for the governing terms. This repository
+notice is a scope statement, not a replacement software license.
+
+Earlier separately granted MIT, CC BY 4.0 and third-party licenses retain their
+effect for the materials covered by those grants. This notice does not withdraw
+them or impose new payment obligations on already licensed copies.
+
+中文
+
+本仓库提供售前解决方案工具的产品介绍、首次使用说明、功能变化、截图和授权信息，
+不分发程序、安装包或商业源代码。访问本公开资料不授予使用商业源代码的权利，
+也不等于取得软件交付。
+
+明确采用 Cavwic 商业软件使用许可1.0的工具版本，按该现有许可及适用订单或书面授权
+交付。摘要见 docs/licensing.md，实际适用条款以交付版本随附的完整许可为准。
+本仓库声明仅说明资料范围，不替代软件使用许可。
+
+此前按 MIT、CC BY 4.0 或第三方许可已授予的权利，继续适用于各自覆盖的材料。
+本声明不撤回这些权利，也不使已经获准使用的副本产生新的付款义务。
