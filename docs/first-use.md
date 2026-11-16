@@ -1,6 +1,6 @@
 # First use · 首次使用
 
-**V1.10.4** · [English](#user-content-first-use-english) · [简体中文](#user-content-first-use-chinese) · [Product home](../README.md)
+**V1.11.0** · [English](#user-content-first-use-english) · [简体中文](#user-content-first-use-chinese) · [Product home](../README.md)
 
 <details name="first-use-language" open>
 <summary><strong>English</strong></summary>
@@ -12,6 +12,12 @@
 Open **[Download the tool](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)**. This opens the Fiverr service page; delivery, version and licensing follow the applicable order.
 
 Run the delivered installer, choose an installation folder and follow its progress. The online installer downloads and configures the desktop runtime, so allow an internet connection and enough disk space for the installed program. You do not need Node.js or a development server. Keep the installed files together if you later move the tool.
+
+### Trial and activation
+
+Your first local launch starts a **72-hour trial**. Existing parsing, generation, deviation-table and checking features are available, with trial watermarks on Word/PDF exports. Whole-library backups, project-package import/export and company-asset sharing require payment. After expiry, existing projects and files remain viewable; a valid paid license restores editing and generation.
+
+Choose monthly **$10**, annual **$90**, or one-time **$170** use of the delivered version range. All paid plans have the same features. Open **Trial and licensing** in the top bar; after the seller verifies your Fiverr order, choose the signed license file or paste its complete content, then select **Verify and activate**. No licensing-server login is needed. If requested, **Copy activation request** provides a local installation reference; this does not add a device limit or binding by default. Plans do not renew automatically and do not include model/API fees. See [licensing](licensing.md).
 
 ## 2. Find your way around
 
@@ -59,6 +65,12 @@ Test the connection and save the settings before generating. Use **Import Skills
 
 Review generated text, requirements, source documents and file formatting before use. Procurement submission, signatures and seals remain outside the tool.
 
+### PDF export and paid packages
+
+In **Output files**, **Export project PDF** reflows the project's Markdown text onto A4 pages. It does not preserve a Word template's original layout. A paid license lets you export it again without a model call. Historical PDF watermarks are baked into that file; create a new export rather than expecting lossless removal. Source files are kept unchanged.
+
+In **Trial and licensing → Backup and sharing**, an active paid license enables **Back up libraries**, **Export current project** and **Share company assets**. The backup covers app-managed project/company libraries with a checksum manifest for manual recovery; external project folders and AppData model settings are excluded. The asset ZIP contains active company records and originals, excluding removed/archived records. Confirm that recipients may receive them. This is offline file sharing, not a cloud service.
+
 ## 7. Save, clean up and update
 
 Back up the project library, company knowledge library, external project folders and any settings you need before moving or updating the app. The app's folder buttons reveal the actual locations; settings are under `%APPDATA%\CavwicBidWorkbench`.
@@ -77,6 +89,12 @@ Back up the project library, company knowledge library, external project folders
 打开 **[工具下载](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)**，跳转至 Fiverr 服务页面。交付版本、内容和授权以适用订单为准。
 
 运行收到的安装器，选择安装位置并按提示完成安装。在线引导安装器会下载并配置桌面运行环境，需要联网，并为完整程序预留磁盘空间。无需另装 Node.js 或开发服务器。之后移动工具时，应保留完整运行文件。
+
+### 试用与激活
+
+**首次本机启动后开始72小时试用**。现有解析、生成、偏离表和检查功能可用，Word／PDF 导出带试用水印；整库备份、项目包导入导出和企业资产包共享需付费。到期后已有项目和文件仍可查看，导入有效付费授权后恢复编辑和生成。
+
+可选月度 **$10**、年度 **$90** 或一次性 **$170** 的交付版本买断，付费套餐功能相同。打开顶栏“试用与授权”，在卖家核实 Fiverr 订单并提供签名文件后，选择授权文件或粘贴完整内容，再点击“验证并激活”，无需登录授权服务器。需要时可“复制授权请求”提供本机安装参考；默认不因此限制设备数或绑定安装。套餐不自动续费，不含模型／API费用，详见[授权说明](licensing.md)。
 
 ## 2. 认识界面
 
@@ -123,6 +141,12 @@ Back up the project library, company knowledge library, external project folders
 | 输出文件 | 检查已保存的成果，选择交付文件并复制或导出。 |
 
 正式使用前，请核对生成内容、招标要求、依据原件和格式。采购平台提交、签字与盖章由使用者自行完成。
+
+### PDF 导出与付费打包
+
+在“输出文件”点击“导出项目 PDF”，按项目 Markdown 正文重新排为 A4，不能保真还原 Word 模板原版式。付费授权后可直接重导，无需调用模型。历史 PDF 中的水印已经烘焙到文件里，应重新导出，不会无损自动消失；源文件保持不变。
+
+在“试用与授权 → 备份与共享”中，有效付费用户可使用“整库备份”“导出当前项目包”“分享企业资产包”。整库备份包含工具管理的项目库、企业库及校验清单，供手动恢复，不含外部项目目录或 AppData 模型配置。企业资产 ZIP 只含仍在库中的企业档案、资料及原件，不含移除的归档记录。确认可向接收方提供这些资料后再分享；这是离线文件共享，不是云服务。
 
 ## 7. 保存、清理与更新
 

@@ -7,33 +7,44 @@
 
 <a name="licensing-english"></a>
 
-## Commercial delivery
+## Three-day trial and paid plans
 
-The Presales Solution Tool uses closed-source commercial delivery for versions that expressly adopt the **Cavwic Commercial Software License 1.0**, beginning with V1.10.4. This page summarizes the existing terms; the full license supplied with the tool and any applicable order or written grant determine the rights you receive.
+**V1.11.0** starts a **72-hour trial on first local launch**. Existing parsing, document generation, deviation-table and checking features are available during the trial. The three paid plans have identical features; only the licensed term differs.
 
-Use **[Download the tool](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)** to open the Fiverr service page. That page arranges the delivery stated in the order; it is not a public installer mirror. This repository contains product documentation and screenshots and does not supply the commercial source code or grant a right to use that source code.
+| Plan | Price | Term |
+| --- | --- | --- |
+| Trial | Free | 72 hours from first local launch |
+| Monthly | **$10** | One calendar month |
+| Annual | **$90** | One calendar year |
+| One-time purchase | **$170** | Continued use of the delivered version within the licensed version range |
 
-| Order type | Delivered use |
-| --- | --- |
-| One month | Use the delivered version during the ordered month; continued use needs a further license. |
-| One year | Use the delivered version during the ordered year; continued use needs a further license. |
-| One-time perpetual use | Continue using the version delivered under the order. Unlimited future versions, maintenance and support are not included by default. |
+| Feature | During trial | Active paid license | After expiry |
+| --- | --- | --- | --- |
+| Existing parsing, generation, deviation tables and checks | Available | Available | View existing projects/files only |
+| Word / PDF exports | Trial watermark | No trial watermark on new exports | Existing files remain viewable |
+| Whole-library backup | Unavailable | Available | Unavailable |
+| Project-package import/export | Unavailable | Available | Unavailable |
+| Company-asset package sharing | Unavailable | Available | Unavailable |
 
-Fixed-term orders do not renew automatically. Unless the order states another date, the term starts on delivery. The order defines any agreed user, organization or deployment scope; the existing license does not add a fixed seat or device count.
+After the trial or a fixed-term license expires, saved projects and files remain viewable. Import a valid license to resume editing and generation. Expiry does not erase your materials. Fixed-term orders do not renew automatically. Terms use UTC calendar dates and handle month-end; unless the order expressly agrees otherwise, arrange the license start to match delivery.
 
-## Client work and external costs
+The one-time plan covers its delivered version range. Unlimited future versions, maintenance and support are not included by default. The standard license does not add a fixed device count; installation binding is off by default. Any different user, organization, device or deployment scope must be expressly agreed in the order.
 
-The existing license permits the purchaser to use the tool and its templates for personal or internal business work and to create and commercially deliver generated proposal documents to clients. Client outputs and project data do not have to be published. This does not independently authorize redistribution or resale of the application or its standalone template or Skill library. Standard delivery does not include commercial source code.
+## Purchase and activation
 
-Software pricing excludes models, API credits, tokens, hosted inference and computing resources. Configure your own compatible local model or authorized service account and pay the provider for any usage. Local models also retain their own licenses and hardware requirements.
+Open **[Download the tool](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)**. This is the Fiverr service page for delivery and licensing, not a public installer mirror. After manually verifying the order, the seller provides an Ed25519-signed license file. Open **Trial and licensing**, choose that file or paste its complete content, and select **Verify and activate**.
 
-## Data, earlier grants and third parties
+Verification runs locally; the client contains the issuer's public key, not its private key. No automated Fiverr-payment integration or licensing-server sign-in is connected. Local protection and clock checks do not make the application tamper-proof and cannot prevent every same-user program change, state reset or reinstallation. License-file signing is separate from Windows installer/EXE code signing, which is not implemented in this release.
 
-The license does not authorize remote deletion of user files. It does not claim that technical activation, expiry checks or remote enforcement have been implemented. Rights to the user's own data and previously generated documents are unaffected by the end of a fixed-term order.
+## Exports, backups and user data
 
-Earlier MIT code and CC BY 4.0 content retain the rights already granted for their covered materials. This commercial-delivery notice does not withdraw those grants or impose a new payment duty on copies already licensed. Dependencies, runtimes, fonts, imported Skills and other third-party materials retain their own licenses and notices.
+The project PDF export reflows the project's Markdown text onto A4 pages. It is not a layout-preserving Word-to-PDF converter. After activation you can export it again without another model call. Watermarks already baked into historical PDFs are not removed losslessly; create a new PDF from the project text. Export policies do not modify source files or remove third-party watermarks.
 
-The [repository notice](../LICENSE) identifies the scope of this public product repository. Review the full license supplied with the delivered version before use; this summary does not replace it.
+A whole-library backup is a local ZIP snapshot of the app-managed project and company libraries, with file sizes and SHA-256 values for manual recovery. It does not follow external project-folder bindings or include model settings from AppData. Back up external originals and any required settings separately. Company-asset packages contain active company records and their originals, excluding archived/removed items. Sharing is by offline file, with your confirmation; no cloud collaboration service is provided.
+
+The license permits personal/internal business work and commercial delivery of generated proposal documents to clients. It does not independently authorize resale or redistribution of the application or its standalone template/Skill library. Standard delivery does not include commercial source code. Software prices exclude models, API credits, tokens, hosted inference and computing resources.
+
+Versions expressly adopting the **Cavwic Commercial Software License 1.0**, beginning with V1.10.4, follow the full license supplied with the tool and the applicable order. Earlier MIT code and CC BY 4.0 content retain their covered rights. Third-party runtimes, fonts, dependencies, models and imported Skills retain their own licenses. This page and the [repository notice](../LICENSE) do not withdraw earlier grants or replace the delivered software license.
 
 </details>
 
@@ -42,32 +53,43 @@ The [repository notice](../LICENSE) identifies the scope of this public product 
 
 <a name="licensing-chinese"></a>
 
-## 商业交付
+## 三天试用与付费套餐
 
-售前解决方案工具从 V1.10.4 起，对明确采用 **Cavwic 商业软件使用许可 1.0** 的版本实行闭源商业交付。本页摘要说明现有条款，不替代随工具提供的完整许可；实际取得的权利以该许可及适用订单或书面授权为准。
+**V1.11.0** 从**首次本机启动起提供72小时试用**。试用期内可使用现有解析、文件生成、偏离表和检查功能。三个付费套餐功能相同，只区分授权期限。
 
-通过 **[工具下载](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)** 打开 Fiverr 服务页面，按订单安排交付。该链接不是公开安装文件镜像。本公开仓库仅展示产品文档和截图，不提供商业源代码，也不授予使用商业源代码的权利。
+| 套餐 | 价格 | 期限 |
+| --- | --- | --- |
+| 免费试用 | 免费 | 首次本机启动后72小时 |
+| 一个月 | **$10** | 一个日历月 |
+| 一年 | **$90** | 一个日历年 |
+| 一次性买断 | **$170** | 持续使用授权版本范围内的交付版本 |
 
-| 订单类型 | 交付的使用权限 |
-| --- | --- |
-| 一个月 | 在订单约定的一个月内使用交付版本，到期继续使用须另获许可。 |
-| 一年 | 在订单约定的一年内使用交付版本，到期继续使用须另获许可。 |
-| 一次性永久使用 | 持续使用该订单交付的版本，不当然包含无限后续版本、维护和支持。 |
+| 功能 | 试用期内 | 有效付费授权 | 到期后 |
+| --- | --- | --- | --- |
+| 现有解析、生成、偏离表和检查 | 可用 | 可用 | 仅查看已有项目和文件 |
+| Word／PDF 导出 | 带试用水印 | 新导出不带试用水印 | 已有文件仍可查看 |
+| 整库备份 | 不可用 | 可用 | 不可用 |
+| 项目包导入导出 | 不可用 | 可用 | 不可用 |
+| 企业资产包共享 | 不可用 | 可用 | 不可用 |
 
-固定期限订单不自动续费。订单未另定日期时，期限自交付日起计算。使用人、组织或部署范围按订单的明确约定执行；现有许可不另设固定席位数或设备数。
+试用或固定期限授权到期后，已有项目和文件仍可查看；导入有效授权后恢复编辑和生成。到期不清除资料。期限套餐不自动续费，按 UTC 日历日期计算并处理月末；订单无其他明确约定时，应安排授权起始日与交付日一致。
 
-## 客户成果与外部费用
+买断覆盖授权范围内的交付版本，不当然包含无限未来版本、维护或支持。标准许可不另设固定设备数，默认不绑定安装标识；订单若有不同的使用人、组织、设备或部署范围，须另行明确约定。
 
-现有许可允许购买人为自身个人或内部业务使用工具及模板，并制作、商业交付方案等生成文档。客户成果和项目数据无须公开。这不等于另行授予分发或转售应用程序、独立模板库或 Skill 库的权利；标准交付不包含商业源代码。
+## 购买与激活
 
-软件价格不含模型、API 额度、Token、云端推理和算力费用。使用者自行配置兼容的本地模型或有权使用的服务账号，并向服务商支付相关费用。本地模型同样适用其自身许可和硬件要求。
+通过 **[工具下载](https://www.fiverr.com/wencong_chen/provide-my-presales-solution-tool-for-your-windows-workflow)** 打开 Fiverr 服务页面安排交付和授权，该链接不是公开安装包镜像。卖家人工核实订单后提供 Ed25519 签名授权文件。在“试用与授权”中选择文件或粘贴完整内容，再点击“验证并激活”。
 
-## 数据、历史授权与第三方
+授权在本机验证，客户端只带发证公钥，不带签名私钥。未接入 Fiverr 自动付款接口，也无需登录授权服务器。本机状态保护和日期检查不保证防破解，不能彻底防止同一用户修改程序、清空状态或重装。授权文件签名与 Windows 安装器／EXE代码签名是两回事，后者本版尚未实施。
 
-现有许可不授权远程删除用户文件，也不表示工具已经实现激活、到期技术校验或远程执行限制。固定期限订单到期，不改变使用者对自身数据和此前生成文档的权利。
+## 导出、备份与数据
 
-此前按 MIT 发布的代码和按 CC BY 4.0 发布的内容，继续保留其覆盖范围内已经授予的权利。本商业交付说明不撤回这些历史授权，也不使已获许可的副本产生新的付款义务。依赖、运行时、字体、导入的 Skill 等第三方内容仍适用各自许可与声明。
+项目 PDF 导出按项目 Markdown 正文重新排为 A4，不能保真还原 Word 的原版式。付费激活后可直接重导，不需要再次调用模型；历史 PDF 中已烘焙的水印不会无损消失，应从项目正文生成新 PDF。导出策略不修改源文件，也不删除第三方水印。
 
-[仓库声明](../LICENSE)说明本公开产品仓库的范围。使用前请阅读交付版本附带的完整许可，本摘要不替代完整条款。
+“整库备份”是工具管理的项目库和企业库的本地 ZIP 快照，附带文件大小和 SHA-256 清单，供手动恢复；不跟随外部项目目录绑定，也不包含 AppData 模型配置。外部原件和必要设置仍须另外备份。“企业资产包”只含仍在库中的企业档案、资料记录及原件，不含已移除的归档资料。用户确认后以离线文件分享，未提供云端协作服务。
+
+现有许可允许个人／内部业务使用，并向客户商业交付生成方案等文档；不等于另行授予分发或转售应用程序、独立模板库或 Skill 库的权利。标准交付不含商业源代码。软件价格不含模型、API 额度、Token、云推理和算力费用。
+
+从 V1.10.4 起明确采用 **Cavwic 商业软件使用许可 1.0** 的版本，适用随工具交付的完整许可及订单。此前 MIT 代码和 CC BY 4.0 内容保留其覆盖范围内的权利；第三方运行时、字体、依赖、模型和导入 Skill 仍适用各自许可。本页及[仓库声明](../LICENSE)不撤回历史授权，也不替代交付版本附带的完整许可。
 
 </details>
