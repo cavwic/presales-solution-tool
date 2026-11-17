@@ -34,6 +34,8 @@ The left navigation opens the five workflow stages. **Company library** holds re
 
 ## 4. Prepare company knowledge
 
+Company knowledge is included in this app; there is no separate Enterprise edition. Open **Company library** in the left sidebar.
+
 1. Open **Company library → Company profile** and save verified company details.
 2. Under **Documents**, select **Upload documents** or **Add material**. Choose a category and add tags, notes and an expiry date where relevant. The current per-file limit is 25 MB.
 3. Select a document to inspect its original text and source location. A file marked **Needs OCR** has no usable parsed text for keyword search; prepare a readable version before relying on it.
@@ -110,6 +112,8 @@ Back up the project library, company knowledge library, external project folders
 4. 点击“项目列表”切换已载入项目。“历史项目”可搜索已保存的项目，并手动记录投递状态；记录状态不会执行投标提交。
 
 ## 4. 整理企业知识库
+
+企业知识库已集成在正式工具中，无须另开“企业版”。从左侧“企业知识库”进入即可。
 
 1. 打开“企业知识库 → 企业档案”，填写并保存经核实的企业信息。
 2. 在“知识文档”点击“上传文档”或“新增资料”，选择分类，按需填写标签、备注和有效期。当前单个文件上限为25 MB。
